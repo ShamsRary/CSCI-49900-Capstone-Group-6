@@ -10,15 +10,19 @@ body {
 
 nav {
   display: flex;
-  gap: 20px;
+  align-items: center;
+  gap: 30px;
   padding: 16px 24px;
   background-color: #101a30;
+  box-shadow: 0px 2px 5ch rgba(83, 168, 233, 0.45);
 }
 
 nav a {
   color: #4e8cff;
   text-decoration: none;
   font-weight: bold;
+  transition: all 0.5s ease; /* Smooth transition for hover effect */
+
 }
 
 nav a:hover {
@@ -26,24 +30,90 @@ nav a:hover {
 }
 
 
-h1, h3 {
-  padding: 10px;
+h1 {
+  font-size: 2.5em;
+  font-weight: 700;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  text-align: center;
+}
+
+h3 {
+  font-size: 1.2em;
+  font-weight: 500;
   text-align: center;
 }
 
 p {
+  font-size: 1em;
   padding: 0 30px;
-  margin: 5px;
   line-height: 1.5;
   text-align: center;
   
 }
 
-.card {
-  background-color: #6d8acd;
-  border: 5px solid #0d53d5b1;
+.card { /* basic card */
+  background-color: #101a30;
+  border: 3px solid #0d53d5b1;
   border-radius: 15px;
   padding: 16px;
-  margin: 16px;
+  margin: 20px;
   text-align: center;
+}
+
+.card-lightblue { /* light blue card */
+  background-color: #2958af;
+  border-color: #79a2eeb1;
+}
+
+.btn { /* for all Button  */
+  background-color: #4e8cff;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 20px 30px;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 10px;
+  text-decoration: none;
+  transition: all 0.6s ease
+}
+
+.btn:hover {
+  background-color: #00d9a3;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 20px;
+  padding: 0 24px;
+
+}
+
+
+.footer {
+  background-color: #101a30;
+  padding: 20px;
+  text-align: center;
+  color: #4e8cff;
+  font-size: 0.9em;
+}
+
+.logo {
+  display: block;
+  margin: 2px auto;
+  width: 100px;
+  height: auto;
+}
+
+.logo-wrapper {
+  background-color: #4e8cff;
+  display: inline-block;
+  justify-content: center;
+  padding: 5px;
+  border-radius: 10px;
 }
