@@ -1,5 +1,10 @@
 
+/* Makes padding and borders count inside an element's width, so sizes match what you calculate */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
 
+/*  Page basics ===== */
 body {
   background-color: #1a202e;
   color: #e2dede;
@@ -8,13 +13,14 @@ body {
   padding: 0;
 }
 
+/*  Navigation bar  */
 nav {
   display: flex;
   align-items: center;
   gap: 30px;
   padding: 16px 24px;
   background-color: #101a30;
-  box-shadow: 0px 2px 5ch rgba(83, 168, 233, 0.45);
+  box-shadow: 0px 2px 12px rgba(83, 168, 233, 0.45); /* soft blue glow under the nav */
 }
 
 nav a {
@@ -22,14 +28,13 @@ nav a {
   text-decoration: none;
   font-weight: bold;
   transition: all 0.5s ease; /* Smooth transition for hover effect */
-
 }
 
 nav a:hover {
-  color: #00d9a3;
+  color: #00d9a3; 
 }
 
-
+/*  Text styles  */
 h1 {
   font-size: 2.5em;
   font-weight: 700;
@@ -50,12 +55,18 @@ h3 {
 
 p {
   font-size: 1em;
-  padding: 0 30px;
-  line-height: 1.5;
+  padding: 0;
+  line-height: 1.5; /* space between lines inside a paragraph */
   text-align: center;
-  
 }
 
+.divider {
+  height: 4px;
+  background-color: #4e8cff;
+  margin: 20px auto;
+}
+
+/* Cards */
 .card { /* basic card */
   background-color: #101a30;
   border: 3px solid #0d53d5b1;
@@ -63,6 +74,7 @@ p {
   padding: 16px;
   margin: 20px;
   text-align: center;
+  transition: transform 0.2s ease; /* smooth movement for the hover effect below */
 }
 
 .card-lightblue { /* light blue card */
@@ -70,7 +82,9 @@ p {
   border-color: #79a2eeb1;
 }
 
+/*  Buttons  */
 .btn { /* for all Button  */
+  display: inline-block; /* makes padding and clickable area behave on links */
   background-color: #4e8cff;
   color: #ffffff;
   border: none;
@@ -79,30 +93,30 @@ p {
   font-weight: 600;
   cursor: pointer;
   margin: 10px;
-  text-decoration: none;
-  transition: all 0.6s ease
+  text-decoration: none; /* removes the link underline */
+  transition: all 0.6s ease;
 }
 
 .btn:hover {
   background-color: #00d9a3;
 }
 
+/*  Layout helpers  */
 .container {
   max-width: 1000px;
-  margin: 20px;
+  margin: 20px auto; /* auto left/right centers it on wide screens */
   padding: 0 24px;
-
 }
-
 
 .footer {
   background-color: #101a30;
-  padding: 20px;
+  padding: 24px;
   text-align: center;
   color: #4e8cff;
   font-size: 0.9em;
 }
 
+/*  Logo  */
 .logo {
   display: block;
   margin: 2px auto;
@@ -113,7 +127,40 @@ p {
 .logo-wrapper {
   background-color: #4e8cff;
   display: inline-block;
-  justify-content: center;
   padding: 5px;
   border-radius: 10px;
+}
+
+/*  Call to action section  */
+.cta-row { /* Call to action row */
+  display: flex;
+  flex-wrap: wrap; /* cards drop to a new line on narrow screens */
+  gap: 16px;
+}
+
+.cta-row .card {
+  flex: 1 1 250px; /* share the row equally, wrap if narrower than 250px */
+  margin: 0;
+}
+
+/* Features section  */
+.feature-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center; /* centers the leftover cards on the last row */
+  gap: 16px;
+  padding: 20px;
+}
+
+.feature-grid .card { /* Each card takes up 1/3 of the row, minus the gap */
+  flex: 0 1 calc((100% - 32px) / 3);
+  min-width: 220px;
+  margin: 0px;
+}
+
+/*  Hover effect  */
+/* Only the inner cards lift */
+.feature-grid .card:hover,
+.cta-row .card:hover {
+  transform: translateY(-4px);
 }
