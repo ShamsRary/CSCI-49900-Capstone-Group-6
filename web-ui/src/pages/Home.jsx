@@ -8,7 +8,6 @@ function Home() {
         {/* intro */}
         <div className="card">
             
-            {/*  designs: ★ ☆ ● ○ ■ □ ◆ ◇ ▲ ▼ ► ◄ ♦ ♠ ♣ ♥ • ▪ ▫ ✓ ✕ → ← ↑ ↓ */}
             <div className="logo-wrapper">
                 <img src={logo} alt="Crossy Word Logo" className="logo" />
             </div>

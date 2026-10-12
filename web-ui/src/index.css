@@ -4,9 +4,9 @@
   box-sizing: border-box;
 }
 
-/*  Page basics ===== */
+/*  Page basics  */
 body {
-  background-color: #1a202e;
+  background-color: #03244d;
   color: #e2dede;
   font-family: sans-serif;
   margin: 0;
@@ -163,4 +163,69 @@ p {
 .feature-grid .card:hover,
 .cta-row .card:hover {
   transform: translateY(-4px);
+}
+
+/* Add Pair button: dashed outline, full width under the rows */
+.btn-add {
+  margin-top: 16px;
+  padding: 12px 20px;
+  background: transparent;
+  color: #4e8cff;
+  border: 2px dashed #4e8cff;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-add:hover {
+  color: #31c18c;
+}
+
+/* Remove button: small, grey, turns red on hover */
+.btn-remove {
+  background: transparent;
+  color: #6482cd;
+  padding: 12px 8px;
+  border: 1px solid #2a3a5c;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+}
+.btn-remove:hover {
+  color: #ff6b6b;
+}
+
+
+/* Text boxes that match the dark theme */
+input {
+  background-color: #060911;
+  color: #e2dede;
+  border: 2px solid #2a3a5c;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 1em;
+  font-family: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Gray hint text */
+input::placeholder {
+  color: #6b7385;
+}
+
+/* Glows blue when you click into it */
+input:focus {
+  outline: none;
+  border-color: #4e8cff;
+  box-shadow: 0 0 0 3px rgba(78, 140, 255, 0.25);
+}
+
+/* Each row: question on top, answer below, both full width */
+.pair-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.pair-row input {
+  width: 100%;
 }
