@@ -1,5 +1,9 @@
 function Puzzle() {
-    return <h1>Puzzle Page</h1>;
+    return (
+        <body>
+            <h1>Puzzle Page</h1>          
+        </body>
+    );
 }
 
 export default Puzzle;
