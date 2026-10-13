@@ -238,6 +238,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
 
 #Testing
 
+"""
 output, groups, center = Generate(
     {"INCREDIBLE","ASTONISHING","BREATHTAKING","UNBELIEVABLE","COMPLICATED","INTERESTING","UNDERSTANDING","COMMUNICATION","DEVELOPMENT","ENVIRONMENT","EXPERIENCE","GOVERNMENT","INFORMATION","KNOWLEDGEABLE","PARTICULARLY","RESPONSIBILITY","SIGNIFICANT"},
     {"SPECTACULAR","MAGNIFICENT","EXTRAORDINARY"},
@@ -246,3 +247,4 @@ output, groups, center = Generate(
 for pos, char in output.items():
     print(f"[Vector3.new{repr(pos)}] = '{char}',")
 print(f"Center of mass: {repr(center)}")
+"""
