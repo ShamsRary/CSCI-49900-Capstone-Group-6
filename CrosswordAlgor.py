@@ -1,4 +1,4 @@
-import cmath, typing, functools
+import cmath, typing, functools, json
 
 Vec = tuple[float, float, float]
 VecSpace = dict[Vec, Vec]
@@ -236,15 +236,35 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
 
     return output, groups, CoM(output)
 
+class Input(typing.TypedDict):
+    Words: list[str]
+    Priority: list[str]
+    Size: int
+
+class Output(typing.TypedDict):
+    Voxels: list[tuple[float, float, float, str]]
+    Words: dict[str, list[Vec]] #maps words to their voxels
+    CoM: Vec
+
+def GenerateJSON(i: Input) -> Output:
+    voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["Size"])
+    return {
+        "Voxels": [(p[0], p[1], p[2], c) for p, c in voxels.items()],
+        "Words": words,
+        "CoM": (CoM[0], CoM[1], CoM[2])
+    }
+
+
 #Testing
 
 """
-output, groups, center = Generate(
-    {"INCREDIBLE","ASTONISHING","BREATHTAKING","UNBELIEVABLE","COMPLICATED","INTERESTING","UNDERSTANDING","COMMUNICATION","DEVELOPMENT","ENVIRONMENT","EXPERIENCE","GOVERNMENT","INFORMATION","KNOWLEDGEABLE","PARTICULARLY","RESPONSIBILITY","SIGNIFICANT"},
-    {"SPECTACULAR","MAGNIFICENT","EXTRAORDINARY"},
-)
+puzzleConfig: Input = {
+    "Words": ["INCREDIBLE","ASTONISHING","BREATHTAKING","UNBELIEVABLE","COMPLICATED","INTERESTING","UNDERSTANDING","COMMUNICATION","DEVELOPMENT","ENVIRONMENT","EXPERIENCE","GOVERNMENT","INFORMATION","KNOWLEDGEABLE","PARTICULARLY","RESPONSIBILITY","SIGNIFICANT"],
+    "Priority": ["SPECTACULAR","MAGNIFICENT","EXTRAORDINARY"],
+    "Size": 3,
+}
 
-for pos, char in output.items():
-    print(f"[Vector3.new{repr(pos)}] = '{char}',")
-print(f"Center of mass: {repr(center)}")
+puzzleResult = GenerateJSON(puzzleConfig)
+with open("output.json", "w") as f:
+    json.dump(puzzleResult, f)
 """
