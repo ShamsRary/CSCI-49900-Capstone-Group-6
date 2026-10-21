@@ -74,6 +74,7 @@ p {
   padding: 16px;
   margin: 20px;
   text-align: center;
+  
   transition: transform 0.2s ease; /* smooth movement for the hover effect below */
 }
 
@@ -228,4 +229,180 @@ input:focus {
 
 .pair-row input {
   width: 100%;
+}
+
+
+
+/* ===== Puzzle page ===== */
+
+/* Two equal halves: cube on the left, questions and answer box on the right */
+.puzzle-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr);  
+  gap: 16px;
+  padding: 20px;
+  height: calc(100vh - 130px); 
+}
+
+/* Left half: the cube */
+.puzzle-cube {
+  min-width: 0;
+  background: radial-gradient(circle at center, #2a4a8c 0%, #0a1c3b 100%);
+  border: 3px solid #79a2eeb1;
+  border-radius: 15px;
+  overflow: hidden; /* keeps the 3D canvas inside the rounded corners */
+}
+
+/* Right half: questions on top, answer box on the bottom */
+.puzzle-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.puzzle-side .card {
+  margin: 0;
+}
+
+
+/* One question line in the list */
+.question-item {
+  text-align: left;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background-color: #2958af;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.question-item:hover {
+  border-color: #4e8cff;
+}
+
+/* The question the player picked */
+.question-selected {
+  border-color: #00d9a3;
+  background-color: #1f3a6e;
+}
+
+/* Answer box and Check button in one row */
+.answer-row {
+  display: flex;
+  gap: 8px;
+}
+
+.answer-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Check button */
+.btn-check {
+  background: #4e8cff;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-check:hover {
+  background: #00d9a3;
+}
+
+/* On narrow screens, stack the cube on top of the questions */
+@media (max-width: 800px) {
+  .puzzle-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .puzzle-cube {
+    height: 60vh;
+  }
+}
+
+.puzzle-side .questions-card {
+  max-height: 90vh;   /* never taller than 90% of the screen */
+  overflow-y: auto;   /* scrollbar appears when there are more questions than fit */
+}
+
+/* Progress */
+.progress-text {
+  margin: 0 0 8px;
+}
+
+.progress-bar {
+  height: 10px;
+  background: #1a202e;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #00d9a3;
+  transition: width 0.3s ease;
+}
+
+/* Answered questions fade */
+.question-done {
+  opacity: 0.65;
+}
+
+/* Result messages under the answer box */
+.feedback-correct {
+  color: #00d9a3;
+  font-weight: 600;
+  margin: 10px 0 0;
+}
+
+.feedback-wrong {
+  color: #ff6b6b;
+  font-weight: 600;
+  margin: 10px 0 0;
+}
+
+/* Top bar above the puzzle: hint button and hint text */
+.puzzle-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px 0;
+}
+
+.puzzle-topbar .hint-text {
+  margin: 0;
+  text-align: left;
+}
+
+/* Hint button */
+.btn-hint {
+  background: transparent;
+  color: #00d9a3;
+  border: 2px solid #00d9a3;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-hint:hover {
+  background: #00d9a3;
+  color: #101a30;
+}
+
+/* Greyed out until a question is selected */
+.btn-hint:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-hint:disabled:hover {
+  background: transparent;
+  color: #00d9a3;
 }

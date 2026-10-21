@@ -249,18 +249,9 @@ class Output(typing.TypedDict):
 def GenerateJSON(i: Input) -> Output:
     voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["Size"])
     return {
-        "Voxels": [(p[0], p[1], p[2], c) for p, c in voxels.items()],
+        "Voxels": [[p[0], p[1], p[2], c] for p, c in voxels.items()],
         "Words": words,
-        "CoM": (CoM[0], CoM[1], CoM[2])
+        "CoM": [CoM[0], CoM[1], CoM[2]]
     }
 
-#Testing
-
-puzzleConfig: Input = {
-    "Words": ["INCREDIBLE","ASTONISHING","BREATHTAKING","UNBELIEVABLE","COMPLICATED","INTERESTING","UNDERSTANDING","COMMUNICATION","DEVELOPMENT","ENVIRONMENT","EXPERIENCE","GOVERNMENT","INFORMATION","KNOWLEDGEABLE","PARTICULARLY","RESPONSIBILITY","SIGNIFICANT"],
-    "Priority": ["SPECTACULAR","MAGNIFICENT","EXTRAORDINARY"],
-    "Size": 3,
-}
-
-PUZZLE_RESULT = GenerateJSON(puzzleConfig)
-print(repr(PUZZLE_RESULT))
+GenerateJSON(PUZZLE_CONFIG)
