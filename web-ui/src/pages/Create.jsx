@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Create() {
+    const navigate = useNavigate();
     const [title, setTitle] = useState(""); 
         //a variable 'title', a function 'setTitle' to update the title
         //initialize the title state variable to an empty string
@@ -12,6 +14,9 @@ function Create() {
         { question: "", answer: "" },
         { question: "", answer: "" },
     ]);
+
+    //error message
+    const [error, setError] = useState("");
 
     function updatePair(index, field, value) {
         //create a function to update a specific question-answer pair
@@ -45,6 +50,34 @@ function Create() {
         // "i !== index" means "keep every row EXCEPT the one we're removing".
         const newPairs = pairs.filter((_, i) => i !== index);
         setPairs(newPairs);
+    }
+
+    function generatePuzzle() {
+        //trims off any extra spaces
+        const questions = pairs.map(({ question, answer }) => ({
+            question: question.trim(),
+            answer: answer.trim(),
+        }));
+
+        //require user to enter title, all questions and answers, answer must be at least 3 characters/numbers
+        if (!title.trim()) {
+            setError("Enter a title for your puzzle.");
+            return;
+        }
+        if (questions.some(({ question, answer }) => !question || !answer)) {
+            setError("Fill in both the question and answer for every row.");
+            return;
+        }
+     
+        const normalizedAnswers = questions.map(({ answer }) => answer.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+        if (normalizedAnswers.some((answer) => answer.length < 3)) {
+            setError("Each answer must contain at least three letters or numbers.");
+            return;
+        }
+        setError("");
+
+        //tells react router to open puzzle page and carry the title and questions pairs over
+        navigate("/puzzle", { state: { title: title.trim(), questions } });
     }
 
     return (
@@ -94,9 +127,9 @@ function Create() {
                 <button className="btn-add" onClick={addPair}>+ Add </button>
 
                 
+                {error && <p role="alert" className="feedback-wrong">{error}</p>}
                 <div style={{ marginTop: "30px" }}>
-
-                    <button className="btn" onClick={() => console.log({ title, pairs })}> Generate Puzzle </button>
+                    <button className="btn" onClick={generatePuzzle}>Generate Puzzle</button>
                 </div>
 
 

@@ -1,44 +1,47 @@
-import { useEffect, useEffectEvent, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useEffect, useState } from "react";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { Link, useLocation } from "react-router-dom";
 
 import Voxels from "../components/Voxels"
 import { GenerateAsync } from "../components/AlgorInterface.js"
-import { int } from "three/src/nodes/TSL.js";
 
-// Fake questions for now.
-// Each question has a number, a question, and the correct answer.
-const questions = [
-    { number: 1, question: "What is the capital of France?", answer: "Paris" },
-    { number: 2, question: "What is the powerhouse of the cell?", answer: "Mitochondria" },
-    { number: 3, question: "What is the largest planet in our solar system?", answer: "Jupiter" },
-    { number: 4, question: "What is the chemical symbol for gold?", answer: "Au" },
-    { number: 5, question: "Who wrote Romeo and Juliet?", answer: "Shakespeare" },
-    { number: 6, question: "What process do plants use to make food from sunlight?", answer: "Photosynthesis" },
-    { number: 7, question: "How many sides does a hexagon have?", answer: "Six" },
-    { number: 8, question: "Which ocean is the largest?", answer: "Pacific" },
-    { number: 9, question: "What is the hardest natural substance?", answer: "Diamond" },
-    { number: 10, question: "Which planet is known as the Red Planet?", answer: "Mars" },
-    { number: 11, question: "What is the largest mammal in the world?", answer: "Whale" },
-    { number: 12, question: "What gas do humans need to breathe to survive?", answer: "Oxygen" },
-    { number: 13, question: "What is the capital of Japan?", answer: "Tokyo" },
-    { number: 14, question: "Who painted the Mona Lisa?", answer: "Leonardo" },
-    { number: 15, question: "What is frozen water called?", answer: "Ice" },
-    { number: 16, question: "How many continents are there on Earth?", answer: "Seven" },
-    { number: 17, question: "What is the closest star to Earth?", answer: "Sun" },
-    { number: 18, question: "What is the largest organ in the human body?", answer: "Skin" },
-    { number: 19, question: "What is the chemical symbol for water?", answer: "H2O" },
-    { number: 20, question: "In what country are the pyramids of Giza?", answer: "Egypt" },
-    { number: 21, question: "What force pulls objects toward the Earth?", answer: "Gravity" },
-    { number: 22, question: "How many days are in a leap year?", answer: "366" },
-    { number: 23, question: "What is the smallest prime number?", answer: "Two" },
-    { number: 24, question: "What do bees produce?", answer: "Honey" },
-    { number: 25, question: "What language is spoken in Brazil?", answer: "Portuguese" },
+// Keep the original sample puzzle available for the class demonstration at /puzzle.
+const sampleQuestions = [
+    { question: "What is the capital of France?", answer: "Paris" },
+    { question: "What is the powerhouse of the cell?", answer: "Mitochondria" },
+    { question: "What is the largest planet in our solar system?", answer: "Jupiter" },
+    { question: "What is the chemical symbol for gold?", answer: "Au" },
+    { question: "Who wrote Romeo and Juliet?", answer: "Shakespeare" },
+    { question: "What process do plants use to make food from sunlight?", answer: "Photosynthesis" },
+    { question: "How many sides does a hexagon have?", answer: "Six" },
+    { question: "Which ocean is the largest?", answer: "Pacific" },
+    { question: "What is the hardest natural substance?", answer: "Diamond" },
+    { question: "Which planet is known as the Red Planet?", answer: "Mars" },
+    { question: "What is the largest mammal in the world?", answer: "Whale" },
+    { question: "What gas do humans need to breathe to survive?", answer: "Oxygen" },
+    { question: "What is the capital of Japan?", answer: "Tokyo" },
+    { question: "Who painted the Mona Lisa?", answer: "Leonardo" },
+    { question: "What is frozen water called?", answer: "Ice" },
+    { question: "How many continents are there on Earth?", answer: "Seven" },
+    { question: "What is the closest star to Earth?", answer: "Sun" },
+    { question: "What is the largest organ in the human body?", answer: "Skin" },
+    { question: "What is the chemical symbol for water?", answer: "H2O" },
+    { question: "In what country are the pyramids of Giza?", answer: "Egypt" },
+    { question: "What force pulls objects toward the Earth?", answer: "Gravity" },
+    { question: "How many days are in a leap year?", answer: "366" },
+    { question: "What is the smallest prime number?", answer: "Two" },
+    { question: "What do bees produce?", answer: "Honey" },
+    { question: "What language is spoken in Brazil?", answer: "Portuguese" },
 ];
 
 export default function Scene() {
 
-    //test loading & rendering the cube asynchronously
+    const { state } = useLocation();
+    //use questions from navigate state if there is a state, if not, use sample questions
+    const questions = (state?.questions ?? sampleQuestions).map((question, index) => ({ ...question, number: index + 1 }));
+
+//test loading & rendering the cube asynchronously
     /*
         voxels uses the following format:
         {
@@ -53,12 +56,20 @@ export default function Scene() {
             CoM: [x, y, z],
         }
     */
-    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "", "black"]], Words: [], CoM: [] });
+    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "", "black"]], Words: [], CoM: [] });    
     useEffect(() => {
-        const algorInput = { Words: [], Priority: [], Size: 3 };
-        questions.map((q) => algorInput.Words.push(q.answer.toUpperCase()));
-        GenerateAsync(algorInput).then(v => setVoxels(() => v));
-    }, []);
+        if (!questions.length) return;
+        let cancelled = false;
+        const algorInput = {
+            Words: questions.map(({ answer }) => answer.toUpperCase().replace(/[^A-Z0-9]/g, "")),
+            Priority: [],
+            Size: 3,
+        };
+        GenerateAsync(algorInput)
+            .then((generated) => { if (!cancelled) setVoxels(generated); })
+            .catch((error) => { if (!cancelled) setGenerationError(error.message); });
+        return () => { cancelled = true; };
+    }, [state]);
 
     //memory 1: which question the player clicked. Null means none yet.
     const [selected, setSelected] = useState(null);
@@ -81,6 +92,21 @@ export default function Scene() {
 
     // memory 5: the hint text shown in the top bar. "" means no hint yet.
     const [hint, setHint] = useState("");
+
+    const [generationError, setGenerationError] = useState("");
+
+  
+    if (!questions.length) {
+        return (
+            <section>
+                <div className="card">
+                    <h1>No puzzle selected</h1>
+                    <p>Create a puzzle first, then generate it to play.</p>
+                    <Link to="/create" className="btn">Create a Puzzle</Link>
+                </div>
+            </section>
+        );
+    }
 
 
     // Runs when the player clicks "Check".
@@ -110,6 +136,9 @@ export default function Scene() {
     return (
 
         <section>
+
+            {state?.title && <h1>{state.title}</h1>}
+            {generationError && <p role="alert" className="feedback-wrong">Could not generate the puzzle: {generationError}</p>}
 
             <div className="puzzle-layout">
 
@@ -149,7 +178,8 @@ export default function Scene() {
                                     setVoxels(original => {
                                         const vd = structuredClone(original);
                                         vd.Voxels.map((v, i) => vd.Voxels[i][4] = undefined); //unhighlight all voxels
-                                        const wordVoxels = vd.Words[q.answer.toUpperCase()] ?? [];
+                                        const answerWord = q.answer.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                                        const wordVoxels = vd.Words[answerWord] ?? [];
                                         wordVoxels.map(hv => {
                                             vd.Voxels.map((v, i) => {
                                                 if (hv[0] == v[0] && hv[1] == v[1] && hv[2] == v[2]) {
