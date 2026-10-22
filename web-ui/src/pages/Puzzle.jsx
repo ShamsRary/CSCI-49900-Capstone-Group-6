@@ -1,13 +1,10 @@
-import { useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 
 import Voxels from "../components/Voxels"
-//import VoxelData from "../assets/test.json"
-import { Generate } from "../components/AlgorInterface.js"
-
-//testing the algorithm API (still WIP)
-const VoxelData = await Generate({ Words: ["HELLO", "WORLD"], Priority: [], Size: 3 });
+import { GenerateAsync } from "../components/AlgorInterface.js"
+import { int } from "three/src/nodes/TSL.js";
 
 // Fake questions for now.
 // Each question has a number, a question, and the correct answer.
@@ -39,9 +36,29 @@ const questions = [
     { number: 25, question: "What language is spoken in Brazil?", answer: "Portuguese" },
 ];
 
-
-
 export default function Scene() {
+
+    //test loading & rendering the cube asynchronously
+    /*
+        voxels uses the following format:
+        {
+            Voxels: [
+                [x, y, z, character, color],
+            ],
+            Words: {
+                word: [
+                    [x, y, z], //voxels constituting each word, from first to last character
+                ]
+            },
+            CoM: [x, y, z],
+        }
+    */
+    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "", "black"]], Words: [], CoM: [] });
+    useEffect(() => {
+        const algorInput = { Words: [], Priority: [], Size: 3 };
+        questions.map((q) => algorInput.Words.push(q.answer.toUpperCase()));
+        GenerateAsync(algorInput).then(v => setVoxels(() => v));
+    }, []);
 
     //memory 1: which question the player clicked. Null means none yet.
     const [selected, setSelected] = useState(null);
@@ -101,7 +118,7 @@ export default function Scene() {
                     <Canvas camera={{ position: [0, 0, 20], fov: 20 }}>
                         <OrbitControls enableDamping />
                         <ambientLight intensity={10} />
-                        <Voxels voxels={VoxelData} />
+                        <Voxels voxels={voxels} />
                     </Canvas>
                 </div>
 
@@ -128,6 +145,20 @@ export default function Scene() {
                                     setFeedback("");
                                     setHint("");
 
+                                    //highlight the selected word in the puzzle
+                                    setVoxels(original => {
+                                        const vd = structuredClone(original);
+                                        vd.Voxels.map((v, i) => vd.Voxels[i][4] = undefined); //unhighlight all voxels
+                                        const wordVoxels = vd.Words[q.answer.toUpperCase()] ?? [];
+                                        wordVoxels.map(hv => {
+                                            vd.Voxels.map((v, i) => {
+                                                if (hv[0] == v[0] && hv[1] == v[1] && hv[2] == v[2]) {
+                                                    vd.Voxels[i][4] = "orange";
+                                                }
+                                            })
+                                        })
+                                        return vd;
+                                    });
                                 }} >
 
                                 <strong>{q.number}.</strong> {q.question}

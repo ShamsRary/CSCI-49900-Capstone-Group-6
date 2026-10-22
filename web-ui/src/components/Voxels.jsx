@@ -56,7 +56,6 @@ function LetterGroup({ letter, voxels, offset }) {
         </instancedMesh>
     );
 }
-
 export default function Voxels({ voxels }) {
 
     // Group voxels by letter. Recomputed only when the data changes.
