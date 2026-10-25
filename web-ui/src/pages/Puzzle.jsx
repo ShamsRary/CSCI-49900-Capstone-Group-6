@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { Link, useLocation } from "react-router-dom";
@@ -38,8 +38,11 @@ const sampleQuestions = [
 export default function Scene() {
 
     const { state } = useLocation();
+
     //use questions from navigate state if there is a state, if not, use sample questions
-    const questions = (state?.questions ?? sampleQuestions).map((question, index) => ({ ...question, number: index + 1 }));
+    const questions = useMemo(() => ((state?.questions ?? sampleQuestions).map((question, index) => ({ ...question, number: index + 1 }))), [state])
+
+    const [generationError, setGenerationError] = useState("");
 
 //test loading & rendering the cube asynchronously
     /*
@@ -69,7 +72,7 @@ export default function Scene() {
             .then((generated) => { if (!cancelled) setVoxels(generated); })
             .catch((error) => { if (!cancelled) setGenerationError(error.message); });
         return () => { cancelled = true; };
-    }, [state]);
+    }, [questions]);
 
     //memory 1: which question the player clicked. Null means none yet.
     const [selected, setSelected] = useState(null);
@@ -93,9 +96,6 @@ export default function Scene() {
     // memory 5: the hint text shown in the top bar. "" means no hint yet.
     const [hint, setHint] = useState("");
 
-    const [generationError, setGenerationError] = useState("");
-
-  
     if (!questions.length) {
         return (
             <section>
