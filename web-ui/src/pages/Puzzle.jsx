@@ -110,17 +110,24 @@ export default function Scene() {
 
 
     // Runs when the player clicks "Check".
-    function checkAnswer() {
-        // .trim() removes extra spaces at the start and end.
-        // .toLowerCase() makes everything lowercase, so "paris" and "Paris" match.
-        const typed = answer.trim().toLowerCase();
-        const correct = selectedQuestion.answer.trim().toLowerCase();
 
-        // If they match, save "correct" in memory. Otherwise save "wrong".
-        // Saving it makes React redraw the page, which shows the message.
-        if (typed === correct) {
-            setFeedback("correct");
-        } else {
+    function clean(text){
+        return text.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    }
+
+
+    function checkAnswer() {
+        
+        if(clean(answer) === clean(selectedQuestion.answer)) {
+        setFeedback("correct!");
+
+
+        // save this question as answered, unless it's already in the list
+        if (!answered.includes(selectedQuestion.number)) {
+            setAnswered([...answered, selectedQuestion.number]);
+        }
+        } 
+        else {
             setFeedback("wrong");
         }
     }
@@ -133,12 +140,63 @@ export default function Scene() {
         setHint("Starts with " + word[0].toUpperCase() + " and has " + word.length + " characters");
     }
 
+    const ringLength = 2 * Math.PI * 22;
+    const ringFilled = (answered.length / questions.length) * ringLength;
+    // ringFilled is the part of that length to color in, based on how many are answered.
+
     return (
 
         <section>
 
             {state?.title && <h1>{state.title}</h1>}
             {generationError && <p role="alert" className="feedback-wrong">Could not generate the puzzle: {generationError}</p>}
+
+            {/*hint button & progress */}
+            <div className="puzzle-topbar ">
+            
+            <div className="topbar-card">
+                <svg className="progress-ring" viewBox="0 0 56 56" role="img"
+                    aria-label={answered.length + " of " + questions.length + " answered"}>
+                {/* the grey circle behind */}
+                <circle cx="28" cy="28" r="22" className="ring-track" />
+
+                {/* the teal arc. strokeDasharray means "draw this much, then leave a gap".
+                    Drawing ringFilled out of ringLength colors in that fraction of the circle.
+                    rotate(-90) makes it start at the top instead of the right side. */}
+                <circle
+                    cx="28" cy="28" r="22"
+                    className="ring-fill"
+                    style={{ strokeDasharray: ringFilled + " " + ringLength }}
+                    transform="rotate(-90 28 28)"
+                />
+
+                {/* the number answered, in the middle */}
+                <text x="28" y="33" textAnchor="middle" className="ring-text">
+                    {answered.length}
+                </text>
+            </svg>
+                <p className="progress-text">{answered.length} of {questions.length} questions answered</p>
+            </div>
+
+
+
+            <div className="topbar-card">
+
+                {/* disabled means greyed out and unclickable. It's disabled until a question is selected. */}
+                <button className="btn-hint" onClick={showHint} disabled={!selectedQuestion}>
+                    Hint
+                </button>
+
+                {/* Shows the hint if there is one. Otherwise shows a short instruction. */}
+                <p className="hint-text">
+                    {hint !== ""
+                        ? hint
+                        : selectedQuestion
+                            ? "Click Hint for a clue."
+                            : "Select a question to get a hint."}
+                </p>
+            </div>
+            </div>
 
             <div className="puzzle-layout">
 
@@ -191,6 +249,7 @@ export default function Scene() {
                                     });
                                 }} >
 
+                                {answered.includes(q.number) && "✓ "}
                                 <strong>{q.number}.</strong> {q.question}
                             </div>
                         ))}
@@ -225,22 +284,7 @@ export default function Scene() {
                     )}
 
 
-                    {/*hint button and hint text */}
-                    <div className="puzzle-topbar">
-                        {/* disabled means greyed out and unclickable. It's disabled until a question is selected. */}
-                        <button className="btn-hint" onClick={showHint} disabled={!selectedQuestion}>
-                            Hint
-                        </button>
-
-                        {/* Shows the hint if there is one. Otherwise shows a short instruction. */}
-                        <p className="hint-text">
-                            {hint !== ""
-                                ? hint
-                                : selectedQuestion
-                                    ? "Click Hint for a clue."
-                                    : "Select a question to get a hint."}
-                        </p>
-                    </div>
+                    
 
                 </div>
             </div>

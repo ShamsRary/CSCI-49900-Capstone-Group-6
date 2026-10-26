@@ -367,12 +367,27 @@ input:focus {
   margin: 10px 0 0;
 }
 
-/* Top bar above the puzzle: hint button and hint text */
+/* Top row: two equal halves, same as the cube and the questions below */
 .puzzle-topbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 10px 20px 0;   /* same side padding as .puzzle-layout, so the halves line up */
+}
+
+/* Each half: a card with its contents in a row */
+.topbar-card {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px 20px 0;
+  margin: 0;
+  padding: 10px 16px;
+  min-width: 0;
+}
+
+.topbar-card p {
+  margin: 0;
+  text-align: left;
 }
 
 .puzzle-topbar .hint-text {
@@ -405,4 +420,36 @@ input:focus {
 .btn-hint:disabled:hover {
   background: transparent;
   color: #00d9a3;
+}
+
+/* Progress ring */
+.progress-ring {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+
+.ring-track {
+  fill: none;
+  stroke: #1a202e;
+  stroke-width: 6;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: #00d9a3;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.4s ease;   /* the arc grows smoothly */
+}
+
+.ring-text {
+  fill: #e2dede;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.puzzle-topbar .progress-text {
+  margin: 0;
+  text-align: left;
 }
