@@ -59,7 +59,7 @@ export default function Scene() {
             CoM: [x, y, z],
         }
     */
-    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "", "black"]], Words: [], CoM: [] });    
+    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "⌛", 0xFFFF00]], Words: [], CoM: [] });    
     useEffect(() => {
         if (!questions.length) return;
         let cancelled = false;
@@ -69,7 +69,13 @@ export default function Scene() {
             Size: 3,
         };
         GenerateAsync(algorInput)
-            .then((generated) => { if (!cancelled) setVoxels(generated); })
+            .then((generated) => {
+                if (!cancelled) {
+                    //hide the answers on the cube
+                    generated.Voxels.map((v, i) => generated.Voxels[i][3] = "?");
+                    setVoxels(generated);
+                }
+            })
             .catch((error) => { if (!cancelled) setGenerationError(error.message); });
         return () => { cancelled = true; };
     }, [questions]);
@@ -125,6 +131,23 @@ export default function Scene() {
         // save this question as answered, unless it's already in the list
         if (!answered.includes(selectedQuestion.number)) {
             setAnswered([...answered, selectedQuestion.number]);
+
+            //reveal the answered word in the puzzle
+            setVoxels(original => {
+                const vd = structuredClone(original);
+
+                //determine what voxels need to change
+                const answerWord = selectedQuestion.answer.toUpperCase();
+                const answerVoxels = vd.Words[answerWord] ?? [];
+                const charMap = new Map();
+                answerVoxels.map((v, i) => charMap.set(`${v[0]}, ${v[1]}, ${v[2]}`, answerWord[i]));
+
+                vd.Voxels.map((v, i) => {
+                    const char = charMap.get(`${v[0]}, ${v[1]}, ${v[2]}`);
+                    if (char != undefined) vd.Voxels[i][3] = char;
+                })
+                return vd;
+            })
         }
         } 
         else {
