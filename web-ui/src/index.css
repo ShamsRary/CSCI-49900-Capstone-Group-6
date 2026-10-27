@@ -241,7 +241,7 @@ input:focus {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: minmax(0, 1fr);  
   gap: 16px;
-  padding: 20px;
+  padding: 10px 20px 20px;
   height: calc(100vh - 130px); 
 }
 
@@ -320,6 +320,7 @@ input:focus {
   .puzzle-layout {
     grid-template-columns: 1fr;
     height: auto;
+    padding: 16px 20px 20px;
   }
   .puzzle-cube {
     height: 60vh;
@@ -372,7 +373,8 @@ input:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  padding: 10px 20px 0;   /* same side padding as .puzzle-layout, so the halves line up */
+  padding: 10px 16px;   
+  margin: 16px 20px 0;
 }
 
 /* Each half: a card with its contents in a row */
@@ -380,8 +382,6 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin: 0;
-  padding: 10px 16px;
   min-width: 0;
 }
 
@@ -452,4 +452,53 @@ input:focus {
 .puzzle-topbar .progress-text {
   margin: 0;
   text-align: left;
+}
+
+
+/*  Login / Sign up page  */
+
+.auth-card {
+  max-width: 560px;
+  margin: 40px auto;
+  padding: 40px;
+}
+
+/* The Log In / Sign Up tabs, side by side */
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.auth-tab {
+  flex: 1;
+  background: transparent;
+  color: #6482cd;
+  border: 2px solid #2a3a5c;
+  border-radius: 8px;
+  padding: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-tab:hover {
+  border-color: #4e8cff;
+}
+
+/* The tab that's showing */
+.auth-tab-active {
+  background: #4e8cff;
+  border-color: #4e8cff;
+  color: #ffffff;
+}
+
+/* Boxes stacked with space between them */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form input {
+  width: 100%;
 }
