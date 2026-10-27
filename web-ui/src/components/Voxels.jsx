@@ -50,7 +50,7 @@ function LetterGroup({ letter, voxels, offset }) {
     }, [voxels, offset]);
 
     return (
-        <instancedMesh ref={meshRef} args={[undefined, undefined, voxels.length]}>
+        <instancedMesh ref={meshRef} args={[undefined, undefined, voxels.length]} rotation={[45, 45, 0]}>
             <boxGeometry args={[1, 1, 1]} />
             <meshStandardMaterial map={texture} />
         </instancedMesh>
