@@ -11,8 +11,12 @@ function run(message) {
   return result;
 }
 
-
 export const StartGame = (pairs) => run({type: "start", pairs});
+export const SetLayout = (words) => run({type: "layout", words});
 export const SubmitAnswer = (index, guess) => run({type: "answer", index, guess});
 export const UseHint = (index) => run({type: "hint", index});
+export const RevealAnswer = (index) => run({type: "reveal", index});
 export const GetSnapshot = () => run({type: "snapshot"});
+export const GetSummary = () => run({type: "summary"});
+export const GetPriority = (limit) => run({type: "priority", limit});
+export const EndGame = () => run({type: "end"});

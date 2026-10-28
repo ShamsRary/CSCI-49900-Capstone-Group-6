@@ -14,7 +14,7 @@ const ready = loadPyodide().then((py) => {
 
 const toJs = (p) => { const r = p.toJs({ dict_converter: Object.fromEntries }); p.destroy?.(); return r; };
 
-async function handle(py, { type, pairs, index, guess }) {
+async function handle(py, { type, pairs, index, guess, words, limit }) {
   if (type === "start") {
     py.globals.set("PAIRS", py.toPy(pairs));
     return toJs(await py.runPythonAsync(`
@@ -27,11 +27,32 @@ GAME.start()
 {"input": build_generator_input(QS), "snapshot": GAME.snapshot()}
 `));
   }
+
+  if (!py.globals.has("GAME")) throw new Error("No game in progress. Call StartGame first.");
+
   py.globals.set("IDX", index);
   py.globals.set("GUESS", guess ?? "");
   if (type === "answer") return toJs(await py.runPythonAsync(`GAME.submit_answer(IDX, GUESS)`));
   if (type === "hint") return await py.runPythonAsync(`GAME.use_hint(IDX)`);
+  if (type === "reveal") return toJs(await py.runPythonAsync(`GAME.reveal(IDX)`));
   if (type === "snapshot") return toJs(await py.runPythonAsync(`GAME.snapshot()`));
+  if (type === "summary") return toJs(await py.runPythonAsync(`GAME.behavior_summary()`));
+  if (type === "end") {
+    await py.runPythonAsync(`GAME.end()`);
+    return toJs(await py.runPythonAsync(`GAME.snapshot()`));
+  }
+  if (type === "layout") {
+    py.globals.set("WORDS", py.toPy(words));
+    return toJs(await py.runPythonAsync(`
+GAME.set_layout({"Words": WORDS})
+GAME.snapshot()
+`));
+  }
+  if (type === "priority") {
+    py.globals.set("LIMIT", limit ?? undefined);
+    return toJs(await py.runPythonAsync(`GAME.priority_indexes(LIMIT)`));
+  }
+  throw new Error(`Unknown message type: ${type}`);
 }
 
 self.onmessage = async ({ data }) => {
@@ -40,6 +61,6 @@ self.onmessage = async ({ data }) => {
   } catch (err) {
     const lines = String(err.message).trim().split("\n");
     const at = lines.findIndex((l) => l.startsWith("ValueError:"));
-    self.postMessage({ ok: false, error: (at >= 0 ? lines.slice(at).join("\n").replace("ValueError: ", "") : String(err)) });
+    self.postMessage({ ok: false, error: (at >= 0 ? lines.slice(at).join("\n").replace("ValueError: ", "") : String(err.message)) });
   }
 };
