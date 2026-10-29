@@ -125,7 +125,7 @@ export default function Scene() {
     function checkAnswer() {
         
         if(clean(answer) === clean(selectedQuestion.answer)) {
-        setFeedback("correct!");
+        setFeedback("correct");
 
 
         // save this question as answered, unless it's already in the list
@@ -167,6 +167,8 @@ export default function Scene() {
     const ringFilled = (answered.length / questions.length) * ringLength;
     // ringFilled is the part of that length to color in, based on how many are answered.
 
+    const alreadyAnswered = selectedQuestion && answered.includes(selectedQuestion.number);
+
     return (
 
         <section>
@@ -175,7 +177,7 @@ export default function Scene() {
             {generationError && <p role="alert" className="feedback-wrong">Could not generate the puzzle: {generationError}</p>}
 
             {/*hint button & progress */}
-            <div className="puzzle-topbar ">
+            <div className="puzzle-topbar card">
             
             <div className="topbar-card">
                 <svg className="progress-ring" viewBox="0 0 56 56" role="img"
@@ -201,8 +203,6 @@ export default function Scene() {
                 <p className="progress-text">{answered.length} of {questions.length} questions answered</p>
             </div>
 
-
-
             <div className="topbar-card">
 
                 {/* disabled means greyed out and unclickable. It's disabled until a question is selected. */}
@@ -212,11 +212,14 @@ export default function Scene() {
 
                 {/* Shows the hint if there is one. Otherwise shows a short instruction. */}
                 <p className="hint-text">
-                    {hint !== ""
+
+                    {alreadyAnswered ? "Already answered."
+                    : hint !== ""
                         ? hint
                         : selectedQuestion
                             ? "Click Hint for a clue."
-                            : "Select a question to get a hint."}
+                            : "Select a question to get a hint."
+                    }
                 </p>
             </div>
             </div>
