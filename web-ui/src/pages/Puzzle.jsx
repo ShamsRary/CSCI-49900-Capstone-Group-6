@@ -44,7 +44,6 @@ export default function Scene() {
 
     const [generationError, setGenerationError] = useState("");
 
-//test loading & rendering the cube asynchronously
     /*
         voxels uses the following format:
         {
@@ -83,7 +82,7 @@ export default function Scene() {
     //memory 1: which question the player clicked. Null means none yet.
     const [selected, setSelected] = useState(null);
 
-    //memory 2: the text hte player typed in answer box
+    //memory 2: the text the player typed in answer box
     const [answer, setAnswer] = useState("");
 
 
@@ -97,7 +96,6 @@ export default function Scene() {
 
     // memory 4: the numbers of the questions answered correctly, like [1, 4, 7]
     const [answered, setAnswered] = useState([]);
-
 
     // memory 5: the hint text shown in the top bar. "" means no hint yet.
     const [hint, setHint] = useState("");
@@ -114,14 +112,62 @@ export default function Scene() {
         );
     }
 
+    // Runs when the player chooses a question to answer.
+    // Happens when they click on a question in the list or they click on a voxel.
+    function chooseQuestion(qNum) {
+        const q = questions[qNum - 1];
+        if (q == undefined) return;
+        setSelected(q.number);
+        setAnswer("");
+        setFeedback("");
+        setHint("");
+
+        //highlight the selected word in the puzzle
+        setVoxels(original => {
+            const vd = structuredClone(original);
+            vd.Voxels.map((v, i) => vd.Voxels[i][4] = undefined); //unhighlight all voxels first
+            const answerWord = q.answer.toUpperCase().replace(/[^A-Z0-9]/g, "");
+            const wordVoxels = vd.Words[answerWord] ?? [];
+            wordVoxels.map(hv => {
+                vd.Voxels.map((v, i) => {
+                    if (hv[0] == v[0] && hv[1] == v[1] && hv[2] == v[2]) {
+                        vd.Voxels[i][4] = "orange";
+                    }
+                })
+            })
+            return vd;
+        });
+    }
+
+    // Callback when the player clicks on a voxel in the puzzle.
+    function voxelClicked({ voxel }) {
+        //Look through the voxels of all words to find the matching one.
+        const candidates = [];
+        for (const [word, wv] of Object.entries(voxels.Words)) {
+            for (const v of wv) {
+                if (v[0] == voxel[0] && v[1] == voxel[1] && v[2] == voxel[2]) {
+                    candidates.push(word);
+                }
+            }
+        }
+
+        //currently, intersection voxels cannot be selected since it's ambiguous which word it refers to
+        const word = candidates[0];
+        if (word != undefined && candidates.length == 1) {
+            //Look for the question that concerns this word
+            for (const q of questions) {
+                if (q.answer.toUpperCase() == word) {
+                    chooseQuestion(q.number);
+                    return;
+                }
+            }
+        }
+    }
 
     // Runs when the player clicks "Check".
-
     function clean(text){
         return text.toUpperCase().replace(/[^A-Z0-9]/g, "");
     }
-
-
     function checkAnswer() {
         
         if(clean(answer) === clean(selectedQuestion.answer)) {
@@ -229,9 +275,9 @@ export default function Scene() {
                 {/* cube */}
                 <div className="puzzle-cube">
                     <Canvas camera={{ position: [0, 0, 20], fov: 20 }}>
-                        <OrbitControls enableDamping />
+                        <OrbitControls />
                         <ambientLight intensity={10} />
-                        <Voxels voxels={voxels} />
+                        <Voxels voxels={voxels} clicked={voxelClicked} />
                     </Canvas>
                 </div>
 
@@ -252,28 +298,7 @@ export default function Scene() {
 
                                 }
                                 // clicking saves this question's number and empties the answer box
-                                onClick={() => {
-                                    setSelected(q.number);
-                                    setAnswer("");
-                                    setFeedback("");
-                                    setHint("");
-
-                                    //highlight the selected word in the puzzle
-                                    setVoxels(original => {
-                                        const vd = structuredClone(original);
-                                        vd.Voxels.map((v, i) => vd.Voxels[i][4] = undefined); //unhighlight all voxels
-                                        const answerWord = q.answer.toUpperCase().replace(/[^A-Z0-9]/g, "");
-                                        const wordVoxels = vd.Words[answerWord] ?? [];
-                                        wordVoxels.map(hv => {
-                                            vd.Voxels.map((v, i) => {
-                                                if (hv[0] == v[0] && hv[1] == v[1] && hv[2] == v[2]) {
-                                                    vd.Voxels[i][4] = "orange";
-                                                }
-                                            })
-                                        })
-                                        return vd;
-                                    });
-                                }} >
+                                onClick={() => chooseQuestion(q.number)} >
 
                                 {answered.includes(q.number) && "✓ "}
                                 <strong>{q.number}.</strong> {q.question}

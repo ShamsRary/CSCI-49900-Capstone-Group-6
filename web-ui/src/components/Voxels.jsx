@@ -29,7 +29,7 @@ function makeLetterTexture(letter) {
 }
 
 // All voxels that share one letter, drawn as a single InstancedMesh.
-function LetterGroup({ letter, voxels, offset }) {
+function LetterGroup({ letter, voxels, offset, clicked }) {
     const meshRef = useRef();
     const texture = useMemo(() => makeLetterTexture(letter), [letter]);
 
@@ -49,14 +49,22 @@ function LetterGroup({ letter, voxels, offset }) {
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }, [voxels, offset]);
 
+    const handleClick = (e) => {
+        if (e.delta > 10) return; //player was dragging, not a click
+        e.stopPropagation();
+        const id = e.instanceId;
+        if (id == undefined) return;
+        clicked?.({ voxel: voxels[id] });
+    };
+
     return (
-        <instancedMesh ref={meshRef} args={[undefined, undefined, voxels.length]} rotation={[45, 45, 0]}>
+        <instancedMesh ref={meshRef} args={[undefined, undefined, voxels.length]} rotation={[45, 45, 0]} onClick={handleClick}>
             <boxGeometry args={[1, 1, 1]} />
             <meshStandardMaterial map={texture} />
         </instancedMesh>
     );
 }
-export default function Voxels({ voxels }) {
+export default function Voxels({ voxels, clicked }) {
 
     // Group voxels by letter. Recomputed only when the data changes.
     const groups = useMemo(() => {
@@ -85,6 +93,6 @@ export default function Voxels({ voxels }) {
     }, [voxels]);
 
     return groups.map(([letter, items]) => (
-        <LetterGroup key={letter} letter={letter} voxels={items} offset={offset} />
+        <LetterGroup key={letter} letter={letter} voxels={items} offset={offset} clicked={clicked} />
     ));
 }
