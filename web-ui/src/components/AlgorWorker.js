@@ -12,6 +12,7 @@ self.onmessage = async ({ data: i }) => {
         pyi.destroy();
 
         //run and extract output
+        console.log("Started algorithm...");
         const resultProxy = await pyodide.runPythonAsync(algorithm);
         const output = resultProxy.toJs({ dict_converter: Object.fromEntries });
         resultProxy.destroy();

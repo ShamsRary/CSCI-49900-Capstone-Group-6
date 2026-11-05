@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { Link, useLocation } from "react-router-dom";
@@ -34,7 +34,6 @@ const sampleQuestions = [
     { question: "What do bees produce?", answer: "Honey" },
     { question: "What language is spoken in Brazil?", answer: "Portuguese" },
 ];
-
 export default function Scene() {
 
     const { state } = useLocation();
@@ -57,8 +56,21 @@ export default function Scene() {
             },
             CoM: [x, y, z],
         }
+
+        voxelToIndexMap uses the following format:
+        {
+            "x, y, z": index,
+        }
+
+        wordToIndicesMap uses the following format:
+        {
+            "x, y, z": [word1, word2, ...],
+        }
     */
-    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "⌛", 0xFFFF00]], Words: [], CoM: [] });    
+    const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "⌛", 0xFFFF00]], Words: {}, CoM: [] });
+    const voxelToIndexMap = useRef(new Map()); //maps voxel coords expressed as strings to their index in "Voxels" array
+    const voxelToWordsMap = useRef(new Map()); //maps voxel coords expressed as strings to words that uses them
+
     useEffect(() => {
         if (!questions.length) return;
         let cancelled = false;
@@ -70,13 +82,30 @@ export default function Scene() {
         GenerateAsync(algorInput)
             .then((generated) => {
                 if (!cancelled) {
-                    //hide the answers on the cube
-                    generated.Voxels.map((v, i) => generated.Voxels[i][3] = "?");
+
+                    voxelToIndexMap.current.clear();
+                    generated.Voxels.map((v, i) => {
+                        generated.Voxels[i][3] = "?"; //hide the answers on the cube by replacing all displayed letters
+                        voxelToIndexMap.current.set(`${v[0]}, ${v[1]}, ${v[2]}`, i); //populate map
+                    });
+
+                    voxelToWordsMap.current.clear();
+                    for (const [w, wv] of Object.entries(generated.Words)) {
+                        wv.map((v) => {
+                            const coords = `${v[0]}, ${v[1]}, ${v[2]}`;
+                            if (!voxelToWordsMap.current.has(coords)) voxelToWordsMap.current.set(coords, []);
+                            voxelToWordsMap.current.get(coords).push(w);
+                        })
+                    }
+
                     setVoxels(generated);
                 }
             })
             .catch((error) => { if (!cancelled) setGenerationError(error.message); });
-        return () => { cancelled = true; }; //TODO: this should cancel the algorithm too
+        return () => {
+            cancelled = true;
+            GenerateAsync(false); //calling with false will cancel the current running worker
+        };
     }, [questions]);
 
     //memory 1: which question the player clicked. Null means none yet.
@@ -127,29 +156,17 @@ export default function Scene() {
             const vd = structuredClone(original);
             vd.Voxels.map((v, i) => vd.Voxels[i][4] = undefined); //unhighlight all voxels first
             const answerWord = q.answer.toUpperCase().replace(/[^A-Z0-9]/g, "");
-            const wordVoxels = vd.Words[answerWord] ?? [];
-            wordVoxels.map(hv => {
-                vd.Voxels.map((v, i) => {
-                    if (hv[0] == v[0] && hv[1] == v[1] && hv[2] == v[2]) {
-                        vd.Voxels[i][4] = "orange";
-                    }
-                })
-            })
+            vd.Words[answerWord]?.map(hv => {
+                const i = voxelToIndexMap.current.get(`${hv[0]}, ${hv[1]}, ${hv[2]}`);
+                vd.Voxels[i] && (vd.Voxels[i][4] = "orange");
+            });
             return vd;
         });
     }
 
     // Callback when the player clicks on a voxel in the puzzle.
     function voxelClicked({ voxel }) {
-        //Look through the voxels of all words to find the matching one.
-        const candidates = [];
-        for (const [word, wv] of Object.entries(voxels.Words)) {
-            for (const v of wv) {
-                if (v[0] == voxel[0] && v[1] == voxel[1] && v[2] == voxel[2]) {
-                    candidates.push(word);
-                }
-            }
-        }
+        const candidates = voxelToWordsMap.current.get(`${voxel[0]}, ${voxel[1]}, ${voxel[2]}`) ?? [];
 
         //currently, intersection voxels cannot be selected since it's ambiguous which word it refers to
         const word = candidates[0];
@@ -171,30 +188,26 @@ export default function Scene() {
     function checkAnswer() {
         
         if(clean(answer) === clean(selectedQuestion.answer)) {
-        setFeedback("correct");
+            setFeedback("correct");
 
 
-        // save this question as answered, unless it's already in the list
-        if (!answered.includes(selectedQuestion.number)) {
-            setAnswered([...answered, selectedQuestion.number]);
+            // save this question as answered, unless it's already in the list
+            if (!answered.includes(selectedQuestion.number)) {
+                setAnswered([...answered, selectedQuestion.number]);
 
-            //reveal the answered word in the puzzle
-            setVoxels(original => {
-                const vd = structuredClone(original);
+                //reveal the answered word in the puzzle
+                setVoxels(original => {
+                    const vd = structuredClone(original);
 
-                //determine what voxels need to change
-                const answerWord = selectedQuestion.answer.toUpperCase();
-                const answerVoxels = vd.Words[answerWord] ?? [];
-                const charMap = new Map();
-                answerVoxels.map((v, i) => charMap.set(`${v[0]}, ${v[1]}, ${v[2]}`, answerWord[i]));
-
-                vd.Voxels.map((v, i) => {
-                    const char = charMap.get(`${v[0]}, ${v[1]}, ${v[2]}`);
-                    if (char != undefined) vd.Voxels[i][3] = char;
+                    //determine what voxels need to change
+                    const answerWord = selectedQuestion.answer.toUpperCase();
+                    vd.Words[answerWord]?.map((v, i) => {
+                        const vi = voxelToIndexMap.current.get(`${v[0]}, ${v[1]}, ${v[2]}`);
+                        vd.Voxels[vi] && (vd.Voxels[vi][3] = answerWord[i] ?? '?');
+                    });
+                    return vd;
                 })
-                return vd;
-            })
-        }
+            }
         } 
         else {
             setFeedback("wrong");
