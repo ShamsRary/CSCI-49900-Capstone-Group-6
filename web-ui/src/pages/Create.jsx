@@ -76,8 +76,26 @@ function Create() {
         }
         setError("");
 
+
+        // The app does not have a backend yet, so keep created puzzles in this browser.
+        // asked ai for this
+        // create a puzzle object with a unique id, title, questions, and creation date
+        const puzzle = {
+            id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            title: title.trim(),
+            questions,
+            createdAt: new Date().toISOString(),
+        };
+        try {
+            const savedPuzzles = JSON.parse(localStorage.getItem("puzzles") ?? "[]");
+            localStorage.setItem("puzzles", JSON.stringify([puzzle, ...savedPuzzles]));
+        } catch {
+            setError("This puzzle could not be saved in this browser. Check your browser storage settings.");
+            return;
+        }
+
         //tells react router to open puzzle page and carry the title and questions pairs over
-        navigate("/puzzle", { state: { title: title.trim(), questions } });
+        navigate("/puzzle", { state: { title: puzzle.title, questions: puzzle.questions } });
     }
 
     return (

@@ -219,6 +219,7 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(78, 140, 255, 0.25);
 }
 
+
 /* Each row: question on top, answer below, both full width */
 .pair-row {
   display: flex;
@@ -502,3 +503,142 @@ input:focus {
 .auth-form input {
   width: 100%;
 }
+
+
+
+
+
+/*  Library page */
+.library-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 28px 24px 56px;
+}
+
+.library-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.library-heading h1 {
+  margin: 4px 0 8px;
+  text-align: left;
+}
+
+.library-eyebrow {
+  margin: 0;
+  color: #00d9a3;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-align: left;
+}
+
+.library-description {
+  margin: 0;
+  color: #b8c5df;
+  text-align: left;
+}
+
+.library-empty {
+  max-width: 600px;
+  margin: 64px auto;
+  padding: 48px 28px;
+}
+
+.library-empty-icon,
+.library-card-icon {
+  display: grid;
+  place-items: center;
+  color: #00d9a3;
+  background: rgba(0, 217, 163, 0.1);
+  border: 1px solid rgba(0, 217, 163, 0.35);
+  border-radius: 14px;
+}
+
+/* star icon design */
+.library-empty-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  font-size: 1.8rem;
+}
+
+
+
+.library-empty p {
+  max-width: 420px;
+  margin: 12px auto 20px;
+  color: #b8c5df;
+}
+
+.library-count {
+  margin: 0 0 12px;
+  color: #b8c5df;
+  text-align: left;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.library-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.library-card-top,
+.library-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.library-card-icon {
+  width: 42px;
+  height: 42px;
+  font-size: 1.4rem;
+}
+
+.library-question-count {
+  padding: 6px 10px;
+  color: #b8c5df;
+  background: #0a1428;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.library-card h2 {
+  margin-top: 22px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+
+.library-date {
+  margin: 8px 0 20px;
+  color: #8ea2c7;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.library-card-actions {
+  justify-content: flex-start;
+  margin-top: auto;
+}
+
+.library-play-button {
+  margin: 0;
+  padding: 12px 18px;
+}
+
