@@ -55,10 +55,8 @@ function Library() {
                     <p>Once you create a puzzle, it will show up here so you can play it again anytime.</p>
                     
                     <Link to="/create" className="btn">Create your first puzzle</Link>
-
-=                       
+                     
                     
-
                 </div>
             ) : (
                 <div className="library-grid">
