@@ -1,5 +1,5 @@
 from game.hints import get_hint, get_pattern
-from game.layout import link_layout
+from game.layout import build_generator_input, link_layout
 from game.parser import normalize
 
 NOT_STARTED = "not_started"
@@ -7,6 +7,9 @@ PLAYING = "playing"
 FINISHED = "finished"
 
 GIVE_UP_SCORE = 3
+
+# How many struggled questions are sent to the generator as priority words on regenerate
+MAX_PRIORITY_WORDS = 3
 
 def check_answer(question, guess):
     """True if the guess matches the question's answer (ignores case, spaces, punctuation)."""
@@ -22,11 +25,17 @@ class Game:
         self.questions = questions
         self.status = NOT_STARTED
         self.solved = [False] * len(questions)
+        # History: kept when the cube is regenerated, so the struggle ranking covers the whole session
         self.wrong_attempts = [0] * len(questions)
         self.hints_used = [0] * len(questions)
+        self.give_ups = [0] * len(questions)
+        # This round only: cleared when the cube is regenerated
         self.given_up = [False] * len(questions)
+        self.round_hints = [0] * len(questions)   # hints given before a layout is set
         self.cells = None        # {question index: [cube positions]} once a layout is set
         self.revealed = set()    # cube positions whose letters are visible (hints and solved words)
+        self.round = 1
+        self.last_priority = []  # the priority questions used for the current cube
 
     def start(self):
         if self.status != NOT_STARTED:
@@ -68,7 +77,7 @@ class Game:
         if self.solved[index]:
             return get_pattern(word, [True] * len(word))
         if self.cells is None:
-            return get_hint(word, self.hints_used[index])
+            return get_hint(word, self.round_hints[index])
         return get_pattern(word, [pos in self.revealed for pos in self.cells[index]])
 
     def submit_answer(self, index, guess):
@@ -98,9 +107,10 @@ class Game:
 
         if self.cells is None:
             answer = self.questions[index]["normalized"]
-            if self.hints_used[index] < len(answer):
+            if self.round_hints[index] < len(answer):
+                self.round_hints[index] += 1
                 self.hints_used[index] += 1
-            return get_hint(answer, self.hints_used[index])
+            return get_hint(answer, self.round_hints[index])
 
         for pos in self.cells[index]:
             if pos not in self.revealed:
@@ -118,15 +128,58 @@ class Game:
 
         self.solved[index] = True
         self.given_up[index] = True
+        self.give_ups[index] += 1
         self._show_word(index)
         if all(self.solved):
             self.status = FINISHED
         return {"answer": self.questions[index]["answer"], "finished": self.status == FINISHED}
 
+    def regenerate(self, priority_limit=None, size=None):
+        """Start a fresh round on a new layout.
+
+        Clears this round's progress (solved questions, revealed letters, the layout) but
+        keeps the behavior history (wrong attempts, hints, give-ups). The questions the
+        player struggled with most are sent to the generator as priority words.
+
+        Returns what the page needs to build the new cube:
+        {"input": the generator's input, "snapshot": the new round's state}.
+        The page then runs the generator and calls set_layout with the result.
+        """
+        if self.status == NOT_STARTED:
+            raise ValueError("Game has not started")
+        limit = MAX_PRIORITY_WORDS if priority_limit is None else priority_limit
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+            raise ValueError("Priority limit must be a whole number, 0 or more")
+
+        self.round += 1
+        priority = self._next_priority(limit)
+        self.last_priority = priority
+
+        count = len(self.questions)
+        self.solved = [False] * count
+        self.given_up = [False] * count
+        self.round_hints = [0] * count
+        self.revealed = set()
+        self.cells = None
+        self.status = PLAYING
+        return {
+            "input": build_generator_input(self.questions, priority, size or 3),
+            "snapshot": self.snapshot(),
+        }
+
+    def _next_priority(self, limit):
+        if limit == 0:
+            return []
+        ranked = self.priority_indexes(limit)
+        if ranked and ranked != self.last_priority:
+            return ranked
+        # Nothing new to prioritize (or the same set as last time, which would give the
+        # same cube): put a different question first so the layout still changes.
+        return [self.round % len(self.questions)]
+
     def _score(self, index):
         score = self.wrong_attempts[index] + self.hints_used[index]
-        if self.given_up[index]:
-            score += GIVE_UP_SCORE
+        score += GIVE_UP_SCORE * self.give_ups[index]
         return score
 
     def struggle_ranking(self):
@@ -166,6 +219,7 @@ class Game:
         """Plain data the page can display. Unsolved answers are not included."""
         return {
             "status": self.status,
+            "round": self.round,
             "layout_set": self.cells is not None,
             "revealed": [list(pos) for pos in sorted(self.revealed)],
             "questions": [

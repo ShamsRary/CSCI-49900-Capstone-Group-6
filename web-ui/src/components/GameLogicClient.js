@@ -20,3 +20,4 @@ export const GetSnapshot = () => run({type: "snapshot"});
 export const GetSummary = () => run({type: "summary"});
 export const GetPriority = (limit) => run({type: "priority", limit});
 export const EndGame = () => run({type: "end"});
+export const Regenerate = (limit, size) => run({type: "regenerate", limit, size});

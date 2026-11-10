@@ -14,7 +14,7 @@ const ready = loadPyodide().then((py) => {
 
 const toJs = (p) => { const r = p.toJs({ dict_converter: Object.fromEntries }); p.destroy?.(); return r; };
 
-async function handle(py, { type, pairs, index, guess, words, limit }) {
+async function handle(py, { type, pairs, index, guess, words, limit, size }) {
   if (type === "start") {
     py.globals.set("PAIRS", py.toPy(pairs));
     return toJs(await py.runPythonAsync(`
@@ -47,6 +47,11 @@ GAME.start()
 GAME.set_layout({"Words": WORDS})
 GAME.snapshot()
 `));
+  }
+    if (type === "regenerate") {
+    py.globals.set("LIMIT", limit ?? undefined);
+    py.globals.set("SIZE", size ?? undefined);
+    return toJs(await py.runPythonAsync(`GAME.regenerate(LIMIT, SIZE)`));
   }
   if (type === "priority") {
     py.globals.set("LIMIT", limit ?? undefined);
