@@ -30,12 +30,12 @@ function Library() {
 
         {/* if there are puzzles, show them in a grid */}
 
-
+        
             <div className="library-heading">
                 <div>
                     <p className="library-eyebrow">YOUR COLLECTION</p>
                     <h1>Puzzle Library</h1>
-                    <p className="library-description">All the puzzles you have created in one place.</p>
+                    <p className="library-description">All your puzzles in one place.</p>
                 </div>
                 
                 <Link to="/create" className="btn">+ Create a Puzzle</Link>
@@ -67,7 +67,7 @@ function Library() {
                             <div className="library-card-icon" aria-hidden="true">✦</div>
 
                             <h2>{puzzle.title}</h2> 
-                            <p>{puzzle.questions.length} clues</p>
+                            <p>{puzzle.questions.length} questions</p>
 
                             {/* add created date */}
                             <p className="library-date">
