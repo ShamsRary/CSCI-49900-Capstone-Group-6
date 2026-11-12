@@ -1,4 +1,4 @@
-import cmath, typing, functools, json
+import cmath, typing, functools
 
 Vec = tuple[float, float, float]
 VecSpace = dict[Vec, Vec]
@@ -51,6 +51,10 @@ Returns two hashmaps and a vector:
     - The center of mass of the finished cube
 """
 def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
+    if sum(map(len, words | priority)) >= 6*size**2 - 12*size:
+            print(f"Lowerbound too small; restarting generation at size={size + 1}")
+            return Generate(words, priority, size + 1)
+    
     size = max(3, size or 3)
     edge: int = size - 1
     center: Vec = (edge / 2, edge / 2, edge / 2)
@@ -100,11 +104,12 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
        
         if units == 0: return pos, dir #base case; no more moves
         if pos not in grid: return None, None #base case; input position is invalid
-        next: Vec = VecAdd(pos, dir) 
-        if next in corners: return None, None #base case; corner positions are invalid
 
         #recursive case; "units" is negative, normalize and invert the direction
-        if units < 0: return Transform(pos, VecNeg(dir), -units)        
+        if units < 0: return Transform(pos, VecNeg(dir), -units)
+
+        next: Vec = VecAdd(pos, dir)
+        if next in corners: return None, None #base case; corner positions are invalid
 
         #recursive case; move in a straight line
         if next in grid: return Transform(next, dir, units - 1)
@@ -118,6 +123,23 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
         #base case; something went wrong
         return None, None
 
+    step: dict[tuple[Vec, Vec], tuple[Vec, Vec]] = {}
+    for p in grid:
+        if p in corners: continue
+        for d in Adjacents:
+            step[p, d] = Transform(p, d, 1)   # one-time use of your existing logic
+
+    maxlen: int = max(map(len, words))
+    path: dict[tuple[Vec, Vec], list[Tuple[Vec, Vec]]] = {}
+    for p in grid:
+        if p in corners: continue
+        for d in Adjacents:
+            cur, cd, seen, out = p, d, set(), []
+            while len(out) < maxlen and cur is not None and cur not in seen:
+                seen.add(cur); out.append((cur, cd))
+                cur, cd = step[cur, cd]
+            path[p, d] = out
+
     """
     Wraps the given word around the cube and returns its projection area and the direction of each voxel.
     Returns None if the word couldn't be wrapped, either because it's too long or the position is invalid.
@@ -125,6 +147,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
     @functools.cache
     def Impose(w: str, pos: Vec, dir: Vec) -> tuple[list[Vec]|None, VecSpace|None]:
         if pos in corners or pos not in grid: return None, None
+        if len(path[pos, dir][:len(w)]) != len(w): return None, None
+
         area: list[Vec] = [] #voxels that are occupied by the word
         vspace: VecSpace = {} #the direction that every voxel is facing
         for i, _ in enumerate(w):
@@ -146,8 +170,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
     def Check(w: str, pos: Vec, dir: Vec) -> tuple[int|None, list[Vec]|None, VecSpace|None]:
 
         #beginning and end of word cannot touch other words
-        if Transform(pos, dir, -1) in output: return None, None, None
-        if Transform(pos, dir, len(w)) in output: return None, None, None
+        if Transform(pos, dir, -1)[0] in output: return None, None, None
+        if Transform(pos, dir, len(w))[0] in output: return None, None, None
 
         area, vspace = Impose(w, pos, dir)
         if not (area and vspace): return None, None, None
@@ -187,7 +211,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
             assert existing is None or existing == char, f"Placement collision on {w}, {pos}, {dir}"
             output[at] = char
             cdir: Vec|None = vspace.get(at)
-            assert cdir, "cdir missing in vpsace"
+            assert cdir, "cdir missing in vspace"
             dirs[at] = cdir
             group.append(at)
         groups[w] = group
@@ -200,7 +224,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
     def BestPlacement(w: str, diverge: bool=False) -> tuple[Vec|None, Vec|None]:
         bestPos: Vec|None = None
         bestDir: Vec|None = None
-        bestCoMDist: float = 0 if diverge else cmath.inf
+        bestCoMDist: float = -cmath.inf if diverge else cmath.inf
         for pos in grid:
             if pos in corners: continue
             for dir in Adjacents:
@@ -208,7 +232,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
                 if n is None or area is None: continue
                 CoMDisp: Vec = VecSub(CoM(output, area), center)
                 CoMDistSq: float = VecDot(CoMDisp, CoMDisp)
-                if (diverge and CoMDistSq > bestCoMDist) or CoMDistSq < bestCoMDist:
+                if CoMDistSq > bestCoMDist if diverge else CoMDistSq < bestCoMDist:
                     bestCoMDist = CoMDistSq
                     bestPos = pos
                     bestDir = dir
@@ -235,6 +259,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
             return Generate(words, priority, size + 1)
 
     return output, groups, CoM(output)
+
+#everything below is for interoperability with Pyodide
 
 class Input(typing.TypedDict):
     Words: list[str]
