@@ -1,23 +1,29 @@
 let currentWorker = undefined;
+let pending = undefined; //resolve() callback of the current running Promise
 
-const stop = () => {
-    currentWorker?.terminate();
-    currentWorker = undefined;
-};
+const newWorker = () => new Worker(new URL('./AlgorWorker.js', import.meta.url), { type: "module" });
+
 export function GenerateAsync(input) {
-    if (currentWorker) stop(); //only one worker can run at a time; always cancel the existing one
-    if (input == false) return Promise.resolve(null); //"false" param means to cancel algorithm
+
+    //a false boolean input is a "cancel signal" that will just halt the current worker
+    if (input === false || pending || !currentWorker) {
+        currentWorker?.terminate();
+        currentWorker = newWorker();
+        pending?.(null);
+        pending = undefined;
+        if (input === false) return Promise.resolve(null);
+    }
 
     console.log("Starting algorithm worker...");
-    currentWorker = new Worker(new URL('./AlgorWorker.js', import.meta.url), { type: "module" });
     return new Promise((resolve, reject) => {
+        pending = resolve;
         currentWorker.onmessage = ({ data }) => {
-            stop();
             data.ok ? resolve(data.result) : reject(new Error(data.error));
+            pending = undefined;
         };
         currentWorker.onerror = (error) => {
-            stop();
             reject(new Error(error.message));
+            pending = undefined;
         };
         currentWorker.postMessage(input);
     })
