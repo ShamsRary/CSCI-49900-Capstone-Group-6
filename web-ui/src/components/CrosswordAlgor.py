@@ -51,11 +51,11 @@ Returns two hashmaps and a vector:
     - The center of mass of the finished cube
 """
 def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
+    size = max(3, size or 3)
     if sum(map(len, words | priority)) >= 6*size**2 - 12*size:
             print(f"Lowerbound too small; restarting generation at size={size + 1}")
             return Generate(words, priority, size + 1)
     
-    size = max(3, size or 3)
     edge: int = size - 1
     center: Vec = (edge / 2, edge / 2, edge / 2)
 
