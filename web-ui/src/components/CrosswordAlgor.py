@@ -51,24 +51,26 @@ Returns two hashmaps and a vector:
     - The center of mass of the finished cube
 """
 def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
-    size = max(3, size or 3)
-    if sum(map(len, words | priority)) >= 6*size**2:
-            #print(f"Lowerbound too small; restarting generation at size={size + 1}")
-            return Generate(words, priority, size + 1)
+    letterVolume: int = sum(map(len, words | priority))
+    _size = size
+    while 6*size**2 < letterVolume: size += 1
+    if size > _size: print(f'Lowerbound pushed to size={size}')
+    sizeUpStep: int = max(1, int(cmath.log(letterVolume, 4).real - 2))
     
     edge: int = size - 1
     center: Vec = (edge / 2, edge / 2, edge / 2)
 
     #what letter is occupying each voxel
     output: dict[Vec, str] = {}
-    #the direction of each voxel holding letters to check for valid crossings
-    dirs: VecSpace = {}    
     #maps words to the voxels that they occupy
     groups: dict[str, list[Vec]] = {}
+
     #hashmap of all surface voxel positions, including the corners
     grid: set[Vec] = set()
     #hashmap of corner voxel positions, which are blacklisted
     corners: set[Vec] = set()
+    #the direction of each voxel holding letters to check for valid crossings on placement
+    dirs: VecSpace = {}    
 
     #populate grid; the 6 sides of the cube
     dim: range = range(size)
@@ -123,8 +125,6 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
         #base case; something went wrong
         return None, None
 
-    #optimizations for Impose(); a preinitialized lookup table of all valid imposure areas
-
     #represents the output of Transform() in single units
     preStepsMap: dict[tuple[Vec|None, Vec|None], tuple[Vec|None, Vec|None]] = {}
     for p in grid:
@@ -156,9 +156,20 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
             seen: set[Vec] = set()
             out: list[tuple[Vec|None, Vec|None]] = []
             while len(out) < maxlen and cur is not None and cur not in seen:
-                seen.add(cur); out.append((cur, cd))
+                seen.add(cur)
+                out.append((cur, cd))
                 cur, cd = preStepsMap[cur, cd]
             prePathsMap[p, d] = out
+
+    #a tuple (of arbitrary size) of neighboring voxels for every valid voxel in the grid
+    preNeighborsMap: dict[Vec, tuple[Vec, ...]] = {}
+    for p in grid:
+        if p in corners: continue
+        neighbors: list[Vec] = []
+        for adj in Adjacents:
+            adjPos, _ = FastTransform(p, adj, 1)
+            if adjPos: neighbors.append(adjPos)
+        preNeighborsMap[p] = tuple(neighbors)
 
     """
     Wraps the given word around the cube and returns its projection area and the direction of each voxel.
@@ -207,8 +218,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
                 crosses += 1
                 
             else: #voxel is not occupied; ensure there isn't any adjacent occupied voxels
-                for adj in Adjacents:
-                    adjPos, _ = FastTransform(at, adj, 1)
+                for adjPos in preNeighborsMap[at]:
                     if adjPos in vspace: continue
                     if adjPos in output: return None, None, None
 
@@ -285,8 +295,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
             sp = VecAdd(sp, pos)
             sc += 1
         else:
-            print(f"Couldn't fit all priority words; restarting generation at size={size + 1}")
-            return Generate(words, priority, size + 1)
+            print(f"Couldn't fit all priority words; restarting generation at size={size + sizeUpStep}")
+            return Generate(words, priority, size + sizeUpStep)
 
     #for every other word, place the longest words first and try to increase balance
     ordered: list = list(words)
@@ -296,8 +306,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
         pos, dir = BestPlacement(w, sp, sc)
         if pos and dir: Place(w, pos, dir)
         else:
-            print(f"Couldn't fit all words; restarting generation at size={size + 1}")
-            return Generate(words, priority, size + 1)
+            print(f"Couldn't fit all words; restarting generation at size={size + sizeUpStep}")
+            return Generate(words, priority, size + sizeUpStep)
 
     return output, groups, CoM(output)
 
