@@ -68,10 +68,25 @@ function Create() {
             setError("Fill in both the question and answer for every row.");
             return;
         }
+        
+        // Check for duplicate questions (case-insensitive, ignoring spaces)
+        const normalizedQuestions = questions.map(({ question }) =>
+            question.toLowerCase().replace(/\s+/g, " ")
+        );
+        if (new Set(normalizedQuestions).size !== normalizedQuestions.length) {
+            setError("Each question must be different.");
+            return;
+        }
      
         const normalizedAnswers = questions.map(({ answer }) => answer.toUpperCase().replace(/[^A-Z0-9]/g, ""));
         if (normalizedAnswers.some((answer) => answer.length < 3)) {
             setError("Each answer must contain at least three letters or numbers.");
+            return;
+        }
+
+        // Check for duplicate answers (case-insensitive, ignoring spaces and punctuation)
+        if (new Set(normalizedAnswers).size !== normalizedAnswers.length) {
+            setError("Each question must have a different answer.");
             return;
         }
         setError("");

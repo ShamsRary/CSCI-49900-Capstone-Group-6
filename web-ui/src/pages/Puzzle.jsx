@@ -125,6 +125,10 @@ export default function Scene() {
 
     // memory 4: the numbers of the questions answered correctly, like [1, 4, 7]
     const [answered, setAnswered] = useState([]);
+    const undoStack = useRef([]);
+    const redoStack = useRef([]);
+    const [canUndo, setCanUndo] = useState(false);
+    const [canRedo, setCanRedo] = useState(false);
 
     // memory 5: the hint text shown in the top bar. "" means no hint yet.
     const [hint, setHint] = useState("");
@@ -193,6 +197,10 @@ export default function Scene() {
 
             // save this question as answered, unless it's already in the list
             if (!answered.includes(selectedQuestion.number)) {
+                undoStack.current.push({ answered, voxels: structuredClone(voxels) });
+                redoStack.current = [];
+                setCanUndo(true);
+                setCanRedo(false);
                 setAnswered([...answered, selectedQuestion.number]);
 
                 //reveal the answered word in the puzzle
@@ -212,6 +220,28 @@ export default function Scene() {
         else {
             setFeedback("wrong");
         }
+    }
+
+    function undoMove() {
+        const previous = undoStack.current.pop();
+        if (!previous) return;
+        redoStack.current.push({ answered, voxels: structuredClone(voxels) });
+        setAnswered(previous.answered);
+        setVoxels(previous.voxels);
+        setFeedback("");
+        setCanUndo(undoStack.current.length > 0);
+        setCanRedo(true);
+    }
+
+    function redoMove() {
+        const next = redoStack.current.pop();
+        if (!next) return;
+        undoStack.current.push({ answered, voxels: structuredClone(voxels) });
+        setAnswered(next.answered);
+        setVoxels(next.voxels);
+        setFeedback("");
+        setCanUndo(true);
+        setCanRedo(redoStack.current.length > 0);
     }
 
 
@@ -239,6 +269,8 @@ export default function Scene() {
             <div className="puzzle-topbar card">
             
             <div className="topbar-card">
+            <div className="progress-summary">
+                
                 <svg className="progress-ring" viewBox="0 0 56 56" role="img"
                     aria-label={answered.length + " of " + questions.length + " answered"}>
                 {/* the grey circle behind */}
@@ -260,6 +292,13 @@ export default function Scene() {
                 </text>
             </svg>
                 <p className="progress-text">{answered.length} of {questions.length} questions answered</p>
+                </div>
+
+                {/*  undo/redo buttons */}
+                <div className="undo-redo-controls">
+                    <button className="btn-hint" onClick={undoMove} disabled={!canUndo}>Undo</button>
+                    <button className="btn-hint" onClick={redoMove} disabled={!canRedo}>Redo</button>
+                </div>
             </div>
 
             <div className="topbar-card">

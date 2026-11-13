@@ -386,6 +386,26 @@ input:focus {
   min-width: 0;
 }
 
+.progress-summary,
+.undo-redo-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.progress-summary {
+  min-width: 0;
+}
+
+.undo-redo-controls {
+  margin-left: auto;
+}
+
+.puzzle-topbar > .topbar-card:last-child {
+  justify-content: flex-end;
+  text-align: right;
+}
+
 .topbar-card p {
   margin: 0;
   text-align: left;
@@ -453,6 +473,20 @@ input:focus {
 .puzzle-topbar .progress-text {
   margin: 0;
   text-align: left;
+}
+
+@media (max-width: 800px) {
+  .puzzle-topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .puzzle-topbar > .topbar-card:first-child {
+    flex-wrap: wrap;
+  }
+
+  .progress-summary {
+    flex: 1 1 190px;
+  }
 }
 
 
