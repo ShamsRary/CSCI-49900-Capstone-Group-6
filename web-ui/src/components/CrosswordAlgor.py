@@ -1,13 +1,13 @@
-import cmath, typing, functools
+import cmath, typing
 
 Vec = tuple[float, float, float]
 VecSpace = dict[Vec, Vec]
 
-Adjacents: set[Vec] = {
+Adjacents: tuple[Vec, Vec, Vec, Vec, Vec, Vec] = (
     (0, 0, -1), (0, 0, 1),
     (0, -1, 0), (0, 1, 0),
     (-1, 0, 0), (1, 0, 0),
-}
+)
 
 #simple vector operations
 
@@ -52,8 +52,8 @@ Returns two hashmaps and a vector:
 """
 def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
     size = max(3, size or 3)
-    if sum(map(len, words | priority)) >= 6*size**2 - 12*size:
-            print(f"Lowerbound too small; restarting generation at size={size + 1}")
+    if sum(map(len, words | priority)) >= 6*size**2:
+            #print(f"Lowerbound too small; restarting generation at size={size + 1}")
             return Generate(words, priority, size + 1)
     
     edge: int = size - 1
@@ -98,65 +98,86 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
     """
     Given a valid position on the grid, returns the transformed position
     by moving in "dir" direction in "units" steps.
+    This version should only be used to populate the lookup table; use FastTransform() otherwise.
     """
-    @functools.cache
-    def Transform(pos: Vec, dir: Vec, units: int) -> tuple[Vec|None, Vec|None]:
+    def RecursiveTransform(pos: Vec, dir: Vec, units: int) -> tuple[Vec|None, Vec|None]:
        
         if units == 0: return pos, dir #base case; no more moves
         if pos not in grid: return None, None #base case; input position is invalid
 
         #recursive case; "units" is negative, normalize and invert the direction
-        if units < 0: return Transform(pos, VecNeg(dir), -units)
+        if units < 0: return RecursiveTransform(pos, VecNeg(dir), -units)
 
         next: Vec = VecAdd(pos, dir)
         if next in corners: return None, None #base case; corner positions are invalid
 
         #recursive case; move in a straight line
-        if next in grid: return Transform(next, dir, units - 1)
+        if next in grid: return RecursiveTransform(next, dir, units - 1)
 
         #recursive case; turn around a corner
         for adj in Adjacents:
             if adj == dir or adj == VecNeg(dir): continue
             next = VecAdd(pos, adj)
-            if next in grid and VecSub(pos, adj) not in grid: return Transform(next, adj, units - 1)
+            if next in grid and VecSub(pos, adj) not in grid: return RecursiveTransform(next, adj, units - 1)
 
         #base case; something went wrong
         return None, None
 
-    step: dict[tuple[Vec, Vec], tuple[Vec, Vec]] = {}
-    for p in grid:
-        if p in corners: continue
-        for d in Adjacents:
-            step[p, d] = Transform(p, d, 1)   # one-time use of your existing logic
+    #optimizations for Impose(); a preinitialized lookup table of all valid imposure areas
 
-    maxlen: int = max(map(len, words))
-    path: dict[tuple[Vec, Vec], list[Tuple[Vec, Vec]]] = {}
+    #represents the output of Transform() in single units
+    preStepsMap: dict[tuple[Vec|None, Vec|None], tuple[Vec|None, Vec|None]] = {}
     for p in grid:
         if p in corners: continue
         for d in Adjacents:
-            cur, cd, seen, out = p, d, set(), []
+            preStepsMap[p, d] = RecursiveTransform(p, d, 1)
+
+    """
+    Given a valid position on the grid, returns the transformed position
+    by moving in "dir" direction in "units" steps.
+    """
+    def FastTransform(pos: Vec|None, dir: Vec|None, units: int) -> tuple[Vec|None, Vec|None]:
+        if pos is None or dir is None: return None, None
+        if units == 0: return pos, dir
+        if units < 0: return FastTransform(pos, VecNeg(dir), -units)
+        while pos and dir and units > 0:
+            units -= 1
+            pos, dir = preStepsMap[pos, dir]
+        return pos, dir
+
+    #represents the output of Impose() at all possible lengths
+    prePathsMap: dict[tuple[Vec|None, Vec|None], list[tuple[Vec|None, Vec|None]]] = {}
+    maxlen: int = max(map(len, words))
+    for p in grid:
+        if p in corners: continue
+        for d in Adjacents:
+            cur: Vec | None = p
+            cd: Vec | None = d
+            seen: set[Vec] = set()
+            out: list[tuple[Vec|None, Vec|None]] = []
             while len(out) < maxlen and cur is not None and cur not in seen:
                 seen.add(cur); out.append((cur, cd))
-                cur, cd = step[cur, cd]
-            path[p, d] = out
+                cur, cd = preStepsMap[cur, cd]
+            prePathsMap[p, d] = out
 
     """
     Wraps the given word around the cube and returns its projection area and the direction of each voxel.
     Returns None if the word couldn't be wrapped, either because it's too long or the position is invalid.
     """
-    @functools.cache
     def Impose(w: str, pos: Vec, dir: Vec) -> tuple[list[Vec]|None, VecSpace|None]:
         if pos in corners or pos not in grid: return None, None
-        if len(path[pos, dir][:len(w)]) != len(w): return None, None
+
+        path: list[tuple[Vec|None, Vec|None]] = prePathsMap[pos, dir][:len(w)]
+        if path == [None, None]: return None, None
+        if len(path) != len(w): return None, None
 
         area: list[Vec] = [] #voxels that are occupied by the word
         vspace: VecSpace = {} #the direction that every voxel is facing
-        for i, _ in enumerate(w):
-            at, newDir = Transform(pos, dir, i)
-            if not (at and newDir): return None, None
-            if at in vspace: return None, None #the world looped back and reached itself
-            vspace[at] = newDir
-            area.append(at)
+        for t in path:
+            if t[0] and t[1]:
+                area.append(t[0])
+                vspace[t[0]] = t[1]
+
         return area, vspace
 
     """
@@ -168,10 +189,6 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
     Otherwise, returns all None.
     """
     def Check(w: str, pos: Vec, dir: Vec) -> tuple[int|None, list[Vec]|None, VecSpace|None]:
-
-        #beginning and end of word cannot touch other words
-        if Transform(pos, dir, -1)[0] in output: return None, None, None
-        if Transform(pos, dir, len(w))[0] in output: return None, None, None
 
         area, vspace = Impose(w, pos, dir)
         if not (area and vspace): return None, None, None
@@ -191,9 +208,13 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
                 
             else: #voxel is not occupied; ensure there isn't any adjacent occupied voxels
                 for adj in Adjacents:
-                    adjPos, _ = Transform(at, adj, 1)
+                    adjPos, _ = FastTransform(at, adj, 1)
                     if adjPos in vspace: continue
                     if adjPos in output: return None, None, None
+
+        #beginning and end of word cannot touch other words
+        if FastTransform(pos, dir, -1)[0] in output: return None, None, None
+        if FastTransform(pos, dir, len(w))[0] in output: return None, None, None
 
         return crosses, area, vspace
 
@@ -217,11 +238,24 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
         groups[w] = group
 
     """
+    Calculates the incremental CoM of the current position-sum and count-sum, plus a new imposure area.
+    """
+    def CandidateCoM(sp: Vec, sc: int, area: list[Vec]) -> Vec:
+        if sc == 0: return 0, 0, 0
+        np: Vec = sp
+        nc: int = sc
+        for v in area:
+            if v not in output:
+                np = VecAdd(np, v)
+                nc += 1
+        return np[0] / nc, np[1] / nc, np[2] / nc
+
+    """
     Looks for the best spot to place a new word, by attempting to balance center of mass.
     Returns the position and direction to place it in if found, otherwise returns None.
     Setting "diverge" to true will instead find the least balancing location.
     """
-    def BestPlacement(w: str, diverge: bool=False) -> tuple[Vec|None, Vec|None]:
+    def BestPlacement(w: str, sp: Vec, sc: int, diverge: bool=False) -> tuple[Vec|None, Vec|None]:
         bestPos: Vec|None = None
         bestDir: Vec|None = None
         bestCoMDist: float = -cmath.inf if diverge else cmath.inf
@@ -230,7 +264,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
             for dir in Adjacents:
                 n, area, _ = Check(w, pos, dir)
                 if n is None or area is None: continue
-                CoMDisp: Vec = VecSub(CoM(output, area), center)
+                CoMDisp: Vec = VecSub(CandidateCoM(sp, sc, area), center)
                 CoMDistSq: float = VecDot(CoMDisp, CoMDisp)
                 if CoMDistSq > bestCoMDist if diverge else CoMDistSq < bestCoMDist:
                     bestCoMDist = CoMDistSq
@@ -239,10 +273,17 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
 
         return bestPos, bestDir
 
+    #keep track of CoM accumulated to use in all future placements
+    sp: Vec = (0, 0, 0)
+    sc: int = 0
+
     #priority words are placed first, in a way that maximizes *imbalance*
     for w in priority:
-        pos, dir = BestPlacement(w, True)
-        if pos and dir: Place(w, pos, dir)
+        pos, dir = BestPlacement(w, sp, sc, True)
+        if pos and dir:
+            Place(w, pos, dir)
+            sp = VecAdd(sp, pos)
+            sc += 1
         else:
             print(f"Couldn't fit all priority words; restarting generation at size={size + 1}")
             return Generate(words, priority, size + 1)
@@ -252,7 +293,7 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
     ordered.sort(key=len, reverse=True)
     for w in ordered:
         if w in priority: continue
-        pos, dir = BestPlacement(w)
+        pos, dir = BestPlacement(w, sp, sc)
         if pos and dir: Place(w, pos, dir)
         else:
             print(f"Couldn't fit all words; restarting generation at size={size + 1}")
