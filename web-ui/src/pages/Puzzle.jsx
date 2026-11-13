@@ -77,6 +77,7 @@ export default function Scene() {
         const algorInput = {
             Words: questions.map(({ answer }) => answer.toUpperCase().replace(/[^A-Z0-9]/g, "")),
             Priority: [],
+            IntersectionBias: 10,
             Size: 3,
         };
         GenerateAsync(algorInput)

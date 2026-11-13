@@ -1,5 +1,9 @@
 import cmath, typing
 
+#used by interface to cancel algorithm prematurely
+#automatically turns itself back to false when triggered
+CANCEL_FLAG: bool = False 
+
 Vec = tuple[float, float, float]
 VecSpace = dict[Vec, Vec]
 
@@ -45,16 +49,24 @@ Words should all be uppercase; duplicate words are ignored.
 Size will automatically grow if the algorithm was unable to fit all input words.
 Priority words are evaluated first in arbitrary order and placed at spots to intentionally cause imbalance.
 Every other word are sorted by length, starting with the longest, and placed to maximize balance.
+Can optionally provide with a bias value to favor making intersections of words over balancing.
 Returns two hashmaps and a vector:
     - The letter occupying every voxel on the surface of the cube
     - A list of voxels that are occupied by each word
     - The center of mass of the finished cube
 """
-def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
+def Generate(
+    words: set[str],
+    priority: set[str] = set(),
+    intersectionBias: float = 0,
+    size: int = 3
+) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
+
+    global CANCEL_FLAG
     letterVolume: int = sum(map(len, words | priority))
     _size = size
     while 6*size**2 < letterVolume: size += 1
-    if size > _size: print(f'Lowerbound pushed to size={size}')
+    if size > _size: print(f'Algorithm: lowerbound size={size}')
     sizeUpStep: int = max(1, int(cmath.log(letterVolume, 4).real - 2))
     
     edge: int = size - 1
@@ -223,8 +235,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
                     if adjPos in output: return None, None, None
 
         #beginning and end of word cannot touch other words
-        if FastTransform(pos, dir, -1)[0] in output: return None, None, None
-        if FastTransform(pos, dir, len(w))[0] in output: return None, None, None
+        #if FastTransform(pos, dir, -1)[0] in output: return None, None, None
+        #if FastTransform(pos, dir, len(w))[0] in output: return None, None, None
 
         return crosses, area, vspace
 
@@ -262,8 +274,9 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
 
     """
     Looks for the best spot to place a new word, by attempting to balance center of mass.
+    There is a certain degree of bias towards number of intersections, which can influence the choice.
     Returns the position and direction to place it in if found, otherwise returns None.
-    Setting "diverge" to true will instead find the least balancing location.
+    Setting "diverge" to true will instead find the least balancing location (bias still applied).
     """
     def BestPlacement(w: str, sp: Vec, sc: int, diverge: bool=False) -> tuple[Vec|None, Vec|None]:
         bestPos: Vec|None = None
@@ -276,7 +289,8 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
                 if n is None or area is None: continue
                 CoMDisp: Vec = VecSub(CandidateCoM(sp, sc, area), center)
                 CoMDistSq: float = VecDot(CoMDisp, CoMDisp)
-                if CoMDistSq > bestCoMDist if diverge else CoMDistSq < bestCoMDist:
+                bias: float = n * intersectionBias
+                if CoMDistSq + bias > bestCoMDist if diverge else CoMDistSq < bestCoMDist + bias:
                     bestCoMDist = CoMDistSq
                     bestPos = pos
                     bestDir = dir
@@ -289,33 +303,46 @@ def Generate(words: set[str], priority: set[str]=set(), size: int = 3) -> tuple[
 
     #priority words are placed first, in a way that maximizes *imbalance*
     for w in priority:
+        if CANCEL_FLAG:
+            print("Algorithm: canceled!")
+            CANCEL_FLAG = False
+            return {}, {}, (0, 0, 0)
+
         pos, dir = BestPlacement(w, sp, sc, True)
         if pos and dir:
             Place(w, pos, dir)
             sp = VecAdd(sp, pos)
             sc += 1
         else:
-            print(f"Couldn't fit all priority words; restarting generation at size={size + sizeUpStep}")
-            return Generate(words, priority, size + sizeUpStep)
+            #print(f"Couldn't fit all priority words; restarting generation at size={size + sizeUpStep}")
+            return Generate(words, priority, intersectionBias, size + sizeUpStep)
 
     #for every other word, place the longest words first and try to increase balance
     ordered: list = list(words)
     ordered.sort(key=len, reverse=True)
     for w in ordered:
+        if CANCEL_FLAG:
+            print("Algorithm: canceled!")
+            CANCEL_FLAG = False
+            return {}, {}, (0, 0, 0)
+
         if w in priority: continue
         pos, dir = BestPlacement(w, sp, sc)
         if pos and dir: Place(w, pos, dir)
         else:
-            print(f"Couldn't fit all words; restarting generation at size={size + sizeUpStep}")
-            return Generate(words, priority, size + sizeUpStep)
+            #print(f"Couldn't fit all words; restarting generation at size={size + sizeUpStep}")
+            return Generate(words, priority, intersectionBias, size + sizeUpStep)
 
-    return output, groups, CoM(output)
+    finalCoM: Vec = CoM(output)
+    print(f"Algorithm: finished at size={size}, CoM={repr(finalCoM)}")
+    return output, groups, finalCoM
 
 #everything below is for interoperability with Pyodide
 
 class Input(typing.TypedDict):
     Words: list[str]
     Priority: list[str]
+    IntersectionBias: float
     Size: int
 
 class Output(typing.TypedDict):
@@ -324,7 +351,7 @@ class Output(typing.TypedDict):
     CoM: Vec
 
 def GenerateJSON(i: Input) -> Output:
-    voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["Size"])
+    voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["IntersectionBias"], i["Size"])
     return {
         "Voxels": [[p[0], p[1], p[2], c] for p, c in voxels.items()],
         "Words": words,
