@@ -363,7 +363,7 @@ export default function Scene() {
                     {/* answer  */}
                     {/* The && means: only draw this card if selectedQuestion has something in it.
                         With nothing selected it's undefined, so the card stays hidden. */}
-                    {selectedQuestion && (
+                    {selectedQuestion && !alreadyAnswered && (
                         <div className="card">
                             <h2>Your Answer</h2>
                             <p>{selectedQuestion.number}. {selectedQuestion.question}</p>
