@@ -1,5 +1,6 @@
 const worker = new Worker(new URL("./GameLogicEngine.js", import.meta.url), { type: "module" });
 
+
 let queue = Promise.resolve();
 function run(message) {
   const result = queue.then(() => new Promise((resolve, reject) => {
@@ -20,4 +21,4 @@ export const GetSnapshot = () => run({type: "snapshot"});
 export const GetSummary = () => run({type: "summary"});
 export const GetPriority = (limit) => run({type: "priority", limit});
 export const EndGame = () => run({type: "end"});
-export const Regenerate = (limit, size) => run({type: "regenerate", limit, size});
+export const Regenerate = (limit, size, bias) => run({type: "regenerate", limit, size, bias});
