@@ -70,6 +70,7 @@ export default function Scene() {
     const [voxels, setVoxels] = useState({ Voxels: [[0, 0, 0, "⌛", 0xFFFF00]], Words: {}, CoM: [] });
     const voxelToIndexMap = useRef(new Map()); //maps voxel coords expressed as strings to their index in "Voxels" array
     const voxelToWordsMap = useRef(new Map()); //maps voxel coords expressed as strings to words that uses them
+    const currentCoM = useRef([0., 0., 0.]); //center of mass of the puzzle (only count voxels w/ letters)
 
     useEffect(() => {
         if (!questions.length) return;
@@ -87,6 +88,7 @@ export default function Scene() {
                     voxelToIndexMap.current.clear();
                     generated.Voxels.map((v, i) => {
                         generated.Voxels[i][3] = "?"; //hide the answers on the cube by replacing all displayed letters
+                        generated.Voxels[i][4] = 0x888888;
                         voxelToIndexMap.current.set(`${v[0]}, ${v[1]}, ${v[2]}`, i); //populate map
                     });
 
@@ -146,6 +148,22 @@ export default function Scene() {
         );
     }
 
+    // Updates the "currentCoM" ref based on the "voxels".
+    // Only voxels that were answered will contribute weight to the calculation.
+    function calculateCoM() {
+        let sx, sy, sz, c;
+        sx = sy = sz = c = 0.;
+        voxels.Voxels.map((v) => {
+            if (v[3] != "?") {
+                c += 1;
+                sx += v[0];
+                sy += v[1];
+                sz += v[2];
+            }
+        });
+        currentCoM.current = c == 0. ? [0., 0., 0.] : [sx / c, sy / c, sz / c];
+    }
+
     // Runs when the player chooses a question to answer.
     // Happens when they click on a question in the list or they click on a voxel.
     function chooseQuestion(qNum) {
@@ -159,11 +177,11 @@ export default function Scene() {
         //highlight the selected word in the puzzle
         setVoxels(original => {
             const vd = structuredClone(original);
-            vd.Voxels.map((v, i) => vd.Voxels[i][4] = undefined); //unhighlight all voxels first
+            vd.Voxels.map((v, i) => vd.Voxels[i][4] = vd.Voxels[i][3] == "?" ? 0x888888 : 0xFFFFFF); //restore colors
             const answerWord = q.answer.toUpperCase().replace(/[^A-Z0-9]/g, "");
-            vd.Words[answerWord]?.map(hv => {
+            vd.Words[answerWord]?.map((hv, ci) => {
                 const i = voxelToIndexMap.current.get(`${hv[0]}, ${hv[1]}, ${hv[2]}`);
-                vd.Voxels[i] && (vd.Voxels[i][4] = "orange");
+                vd.Voxels[i] && (vd.Voxels[i][4] = ci == 0 ? 0xFFFF00 : "orange"); //first letter is yellow to mark beginning
             });
             return vd;
         });
@@ -212,10 +230,25 @@ export default function Scene() {
                     const answerWord = selectedQuestion.answer.toUpperCase();
                     vd.Words[answerWord]?.map((v, i) => {
                         const vi = voxelToIndexMap.current.get(`${v[0]}, ${v[1]}, ${v[2]}`);
-                        vd.Voxels[vi] && (vd.Voxels[vi][3] = answerWord[i] ?? '?');
+                        if (vd.Voxels[vi]) {
+                            vd.Voxels[vi][3] = answerWord[i] ?? '?';
+                            vd.Voxels[vi][4] = answerWord[i] ? 0xFFFFFF : 0x888888;
+                        }
                     });
                     return vd;
                 })
+
+                //update CoM after every answer
+                calculateCoM();
+
+                //TODO: for testing purposes, print out the CoM offset in the console
+                const CoM1 = currentCoM.current;
+                const CoM2 = voxels.CoM;
+                const delta = [CoM1[0] - CoM2[0], CoM1[1] - CoM2[1], CoM1[2] - CoM2[2]];
+                const distSq = delta[0] ** 2 + delta[1] ** 2 + delta[2] ** 2;
+                const dist = distSq ** 0.5;
+                const score = dist * answered.length;
+                console.log(`CoM score: ${score}`);
             }
         } 
         else {
