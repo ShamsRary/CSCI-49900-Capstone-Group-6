@@ -1,30 +1,28 @@
-let currentWorker = undefined;
 let pending = undefined; //resolve() callback of the current running Promise
+let reject = undefined; //reject() callback
 
-const newWorker = () => new Worker(new URL('./AlgorWorker.js', import.meta.url), { type: "module" });
-
+const worker = new Worker(new URL('./AlgorWorker.js', import.meta.url), { type: "module" });
+worker.onmessage = ({ data }) => {
+    data.ok ? pending?.(data.result) : reject?.(new Error(data.error));
+    pending = reject = undefined;
+};
+worker.onerror = (error) => {
+    reject?.(new Error(error.message));
+    pending = reject = undefined;
+};
 export function GenerateAsync(input) {
 
-    //a false boolean input is a "cancel signal" that will just halt the current worker
-    if (input === false || pending || !currentWorker) {
-        currentWorker?.terminate();
-        currentWorker = newWorker();
+    //a false boolean input is a "cancel signal"
+    if (input === false) {
+        worker.postMessage(false);
         pending?.(null);
         pending = undefined;
-        if (input === false) return Promise.resolve(null);
+        return Promise.resolve(null);
     }
 
-    console.log("Starting algorithm worker...");
-    return new Promise((resolve, reject) => {
-        pending = resolve;
-        currentWorker.onmessage = ({ data }) => {
-            data.ok ? resolve(data.result) : reject(new Error(data.error));
-            pending = undefined;
-        };
-        currentWorker.onerror = (error) => {
-            reject(new Error(error.message));
-            pending = undefined;
-        };
-        currentWorker.postMessage(input);
+    return new Promise((_resolve, _reject) => {
+        pending = _resolve;
+        reject = _reject;
+        worker.postMessage(input);
     })
 }

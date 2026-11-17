@@ -1,7 +1,6 @@
 import cmath, typing
 
 #used by interface to cancel algorithm prematurely
-#automatically turns itself back to false when triggered
 CANCEL_FLAG: bool = False 
 
 Vec = tuple[float, float, float]
@@ -63,10 +62,11 @@ def Generate(
 ) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
 
     global CANCEL_FLAG
+
     letterVolume: int = sum(map(len, words | priority))
     _size = size
     while 6*size**2 < letterVolume: size += 1
-    if size > _size: print(f'Algorithm: lowerbound size={size}')
+    #if size > _size: print(f'Algorithm: lowerbound size={size}')
     sizeUpStep: int = max(1, int(cmath.log(letterVolume, 4).real - 2))
     
     edge: int = size - 1
@@ -304,8 +304,7 @@ def Generate(
     #priority words are placed first, in a way that maximizes *imbalance*
     for w in priority:
         if CANCEL_FLAG:
-            print("Algorithm: canceled!")
-            CANCEL_FLAG = False
+            #print("Algorithm: canceled!")
             return {}, {}, (0, 0, 0)
 
         pos, dir = BestPlacement(w, sp, sc, True)
@@ -322,8 +321,7 @@ def Generate(
     ordered.sort(key=len, reverse=True)
     for w in ordered:
         if CANCEL_FLAG:
-            print("Algorithm: canceled!")
-            CANCEL_FLAG = False
+            #print("Algorithm: canceled!")
             return {}, {}, (0, 0, 0)
 
         if w in priority: continue
@@ -350,12 +348,39 @@ class Output(typing.TypedDict):
     Words: dict[str, list[Vec]] #maps words to their voxels
     CoM: Vec
 
+#debounce for the interface
+RUNNING: bool = False
+
+"""
+Main interface function that will be called from a Javascript environment.
+Will check for the "RUNNING" flag; will wait for existing generation process to cancel before running.
+"""
 def GenerateJSON(i: Input) -> Output:
-    voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["IntersectionBias"], i["Size"])
+    global CANCEL_FLAG, RUNNING
+    if RUNNING:
+        print("Algorithm: canceling previous generator process...")
+        CANCEL_FLAG = True
+        while RUNNING: pass #spinlock until algorithm stops
+    
+    voxels = words = CoM = canceled = None
+    try:
+        RUNNING = True
+        #CANCEL_FLAG = False
+        voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["IntersectionBias"], i["Size"])
+    except Exception as e:
+        raise e #propagate error back to Javascript
+    finally:
+        RUNNING = False
+        if CANCEL_FLAG:
+            CANCEL_FLAG = False
+            canceled = True
+
+    if canceled:
+        #print("Generator: cancel flag was triggered, will return nothing")
+        return None
+
     return {
         "Voxels": [[p[0], p[1], p[2], c] for p, c in voxels.items()],
         "Words": words,
         "CoM": [CoM[0], CoM[1], CoM[2]]
     }
-
-GenerateJSON(PUZZLE_CONFIG)

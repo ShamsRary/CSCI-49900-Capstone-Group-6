@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import logo from "../assets/cube.png";
+import { } from "../components/AlgorInterface.js"; //preload the algorithm
 
 function Home() {
     return ( 
