@@ -1,5 +1,8 @@
+import random
+
 from game.hints import get_hint, get_pattern
-from game.layout import build_generator_input, link_layout
+from game.layout import (DEFAULT_INTERSECTION_BIAS, build_generator_input,
+                         check_intersection_bias, link_layout)
 from game.parser import normalize
 
 NOT_STARTED = "not_started"
@@ -11,6 +14,9 @@ GIVE_UP_SCORE = 3
 # How many struggled questions are sent to the generator as priority words on regenerate
 MAX_PRIORITY_WORDS = 3
 
+# The range used when regenerate picks a random intersection bias (placeholder: confirm with the generator's owner)
+RANDOM_BIAS_RANGE = (0.5, 5)
+
 def check_answer(question, guess):
     """True if the guess matches the question's answer (ignores case, spaces, punctuation)."""
     if not isinstance(guess, str):
@@ -19,7 +25,7 @@ def check_answer(question, guess):
 
 class Game:
     """One round of the game. Expects questions that went through validate_questions."""
-    def __init__(self, questions):
+    def __init__(self, questions, rng=None):
         if not questions:
             raise ValueError("A game needs at least one question")
         self.questions = questions
@@ -35,6 +41,8 @@ class Game:
         self.cells = None        # {question index: [cube positions]} once a layout is set
         self.revealed = set()    # cube positions whose letters are visible (hints and solved words)
         self.round = 1
+        self.intersection_bias = DEFAULT_INTERSECTION_BIAS   # the setting used for the current cube
+        self.rng = rng or random.Random()
         self.last_priority = []  # the priority questions used for the current cube
 
     def start(self):
@@ -134,7 +142,7 @@ class Game:
             self.status = FINISHED
         return {"answer": self.questions[index]["answer"], "finished": self.status == FINISHED}
 
-    def regenerate(self, priority_limit=None, size=None):
+    def regenerate(self, priority_limit=None, size=None, intersection_bias=None):
         """Start a fresh round on a new layout.
 
         Clears this round's progress (solved questions, revealed letters, the layout) but
@@ -144,13 +152,22 @@ class Game:
         Returns what the page needs to build the new cube:
         {"input": the generator's input, "snapshot": the new round's state}.
         The page then runs the generator and calls set_layout with the result.
+
+        intersection_bias: a number (0 or more) to use for the new cube, "random" to pick one
+        from RANDOM_BIAS_RANGE, or None to keep the current setting.
         """
         if self.status == NOT_STARTED:
             raise ValueError("Game has not started")
         limit = MAX_PRIORITY_WORDS if priority_limit is None else priority_limit
         if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
             raise ValueError("Priority limit must be a whole number, 0 or more")
+        if intersection_bias == "random":
+            intersection_bias = round(self.rng.uniform(*RANDOM_BIAS_RANGE), 2)
+        elif intersection_bias is not None:
+            check_intersection_bias(intersection_bias)
 
+        if intersection_bias is not None:
+            self.intersection_bias = intersection_bias
         self.round += 1
         priority = self._next_priority(limit)
         self.last_priority = priority
@@ -163,7 +180,7 @@ class Game:
         self.cells = None
         self.status = PLAYING
         return {
-            "input": build_generator_input(self.questions, priority, size or 3),
+            "input": build_generator_input(self.questions, priority, size or 3, self.intersection_bias),
             "snapshot": self.snapshot(),
         }
 
@@ -220,6 +237,7 @@ class Game:
         return {
             "status": self.status,
             "round": self.round,
+            "intersection_bias": self.intersection_bias,
             "layout_set": self.cells is not None,
             "revealed": [list(pos) for pos in sorted(self.revealed)],
             "questions": [

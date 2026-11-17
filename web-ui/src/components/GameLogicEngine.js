@@ -14,7 +14,7 @@ const ready = loadPyodide().then((py) => {
 
 const toJs = (p) => { const r = p.toJs({ dict_converter: Object.fromEntries }); p.destroy?.(); return r; };
 
-async function handle(py, { type, pairs, index, guess, words, limit, size }) {
+async function handle(py, { type, pairs, index, guess, words, limit, size, bias }) {
   if (type === "start") {
     py.globals.set("PAIRS", py.toPy(pairs));
     return toJs(await py.runPythonAsync(`
@@ -42,16 +42,18 @@ GAME.start()
     return toJs(await py.runPythonAsync(`GAME.snapshot()`));
   }
   if (type === "layout") {
+if (!words || Object.keys(words).length === 0) throw new Error("No cube layout to use: the generator was cancelled or failed.");
     py.globals.set("WORDS", py.toPy(words));
     return toJs(await py.runPythonAsync(`
 GAME.set_layout({"Words": WORDS})
 GAME.snapshot()
 `));
   }
-    if (type === "regenerate") {
+    if(type === "regenerate") {
     py.globals.set("LIMIT", limit ?? undefined);
     py.globals.set("SIZE", size ?? undefined);
-    return toJs(await py.runPythonAsync(`GAME.regenerate(LIMIT, SIZE)`));
+    py.globals.set("BIAS", bias ?? undefined);
+    return toJs(await py.runPythonAsync(`GAME.regenerate(LIMIT, SIZE, BIAS)`));
   }
   if (type === "priority") {
     py.globals.set("LIMIT", limit ?? undefined);
