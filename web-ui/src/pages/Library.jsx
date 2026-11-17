@@ -14,15 +14,15 @@ function Library() {
 
     //react read the puzzles from local storage and store them 
     const [puzzles, setPuzzles] = useState(readPuzzles);
+    const [puzzleToDelete, setPuzzleToDelete] = useState(null);
     const navigate = useNavigate();
 
     function deletePuzzle(id) {
-        if (!window.confirm("Delete this puzzle?")) {
-         return; }
         //filter leaves out the puzzle with the given id and updates the state and local storage
         const updatedPuzzles = puzzles.filter((puzzle) => puzzle.id !== id);
         setPuzzles(updatedPuzzles);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPuzzles));
+        setPuzzleToDelete(null);
     }
 
     return (
@@ -95,7 +95,7 @@ function Library() {
                             
                             {/* delete puzzle button */}
                             <button className="btn-remove" 
-                             onClick={() => deletePuzzle(puzzle.id)}>  
+                             onClick={() => setPuzzleToDelete(puzzle)}>  
                              Delete 
                             </button>
                             </div>       
@@ -109,6 +109,20 @@ function Library() {
 
 
 
+            {puzzleToDelete && (
+                <div className="confirm-overlay" onClick={(event) => {
+                    if (event.target === event.currentTarget) setPuzzleToDelete(null);
+                }}>
+                    <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+                        <h2 id="delete-title">Delete puzzle: {puzzleToDelete.title}</h2>
+                        <p>Are you sure you want to delete this puzzle?</p>
+                        <div className="confirm-actions">
+                            <button className="btn-hint" onClick={() => setPuzzleToDelete(null)}>Cancel</button>
+                            <button className="btn-remove" onClick={() => deletePuzzle(puzzleToDelete.id)}>Delete</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

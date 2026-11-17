@@ -42,6 +42,12 @@ export default function Scene() {
     const questions = useMemo(() => ((state?.questions ?? sampleQuestions).map((question, index) => ({ ...question, number: index + 1 }))), [state])
 
     const [generationError, setGenerationError] = useState("");
+    const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+    const [intersectionBias, setIntersectionBias] = useState(10);
+
+    function randomizeIntersectionBias() {
+        setIntersectionBias(Math.round((0.5 + Math.random() * 9.5) * 10) / 10);
+    }
 
     /*
         voxels uses the following format:
@@ -282,7 +288,12 @@ export default function Scene() {
     // Runs when the player clicks "Hint".
     // It gives the first letter and the length of the answer, but not the answer itself.
     function showHint() {
-        const word = selectedQuestion.answer;
+        const targetQuestion = selectedQuestion && !answered.includes(selectedQuestion.number)
+            ? selectedQuestion
+            : questions.find((question) => !answered.includes(question.number));
+        if (!targetQuestion) return;
+        if (targetQuestion.number !== selected) chooseQuestion(targetQuestion.number);
+        const word = targetQuestion.answer;
         setHint("Starts with " + word[0].toUpperCase() + " and has " + word.length + " characters");
     }
 
@@ -328,31 +339,14 @@ export default function Scene() {
                 <p className="progress-text">{answered.length} of {questions.length} questions answered</p>
                 </div>
 
-                {/*  undo/redo buttons */}
-                <div className="undo-redo-controls">
-                    <button className="btn-hint" onClick={undoMove} disabled={!canUndo}>Undo</button>
-                    <button className="btn-hint" onClick={redoMove} disabled={!canRedo}>Redo</button>
-                </div>
             </div>
 
-            <div className="topbar-card">
-
-                {/* disabled means greyed out and unclickable. It's disabled until a question is selected. */}
-                <button className="btn-hint" onClick={showHint} disabled={!selectedQuestion}>
+            <div className="topbar-card hint-card">
+                <button className="btn-hint" onClick={showHint} disabled={answered.length === questions.length}>
                     Hint
                 </button>
 
-                {/* Shows the hint if there is one. Otherwise shows a short instruction. */}
-                <p className="hint-text">
-
-                    {alreadyAnswered ? "Already answered."
-                    : hint !== ""
-                        ? hint
-                        : selectedQuestion
-                            ? "Click Hint for a clue."
-                            : "Select a question to get a hint."
-                    }
-                </p>
+                {hint && <p className="hint-text">{hint}</p>}
             </div>
             </div>
 
@@ -371,6 +365,17 @@ export default function Scene() {
                 {/* questions list */}
 
                 <div className="puzzle-side">
+                    <div className="card undo-redo-bar">
+                        <div className="undo-redo-controls">
+                            <button className="btn-hint" onClick={undoMove} disabled={!canUndo}>Undo</button>
+                            <button className="btn-hint" onClick={redoMove} disabled={!canRedo}>Redo</button>
+                        </div>
+
+                        <button className="btn-hint" type="button" onClick={() => setShowRegenerateConfirm(true)}>
+                            Regenerate
+                        </button>
+                        
+                    </div>
                     <div className="card questions-card">
                         {/* .map() draws one line for EACH question in the list.
                             "key" is a label React needs to tell the lines apart. */}
@@ -427,6 +432,35 @@ export default function Scene() {
             </div>
 
 
+            {showRegenerateConfirm && (
+                <div className="confirm-overlay" onClick={(event) => {
+                    if (event.target === event.currentTarget) setShowRegenerateConfirm(false);
+                }}>
+                    <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="regenerate-title">
+                        <h2 id="regenerate-title">Regenerate puzzle?</h2>
+                        <p>Are you sure you want to create a new puzzle layout?</p>
+                        <div className="regenerate-bias-control">
+                            <div className="regenerate-bias-heading">
+                                <label htmlFor="regenerate-bias">Intersection bias: <strong>{intersectionBias}</strong></label>
+                                <button className="btn-hint" type="button" onClick={randomizeIntersectionBias}>Randomize</button>
+                            </div>
+                            <input
+                                id="regenerate-bias"
+                                type="range"
+                                min="0"
+                                max="10"
+                                step="0.5"
+                                value={intersectionBias}
+                                onChange={(event) => setIntersectionBias(Number(event.target.value))}
+                            />
+                        </div>
+                        <div className="confirm-actions">
+                            <button className="btn-hint" onClick={() => setShowRegenerateConfirm(false)}>Cancel</button>
+                            <button className="btn-hint" onClick={() => setShowRegenerateConfirm(false)}>Regenerate</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }
