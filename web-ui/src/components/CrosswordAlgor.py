@@ -1,4 +1,4 @@
-import cmath, typing
+import math, typing
 
 #used by interface to cancel algorithm prematurely
 CANCEL_FLAG: bool = False 
@@ -64,10 +64,8 @@ def Generate(
     global CANCEL_FLAG
 
     letterVolume: int = sum(map(len, words | priority))
-    _size = size
     while 6*size**2 < letterVolume: size += 1
-    #if size > _size: print(f'Algorithm: lowerbound size={size}')
-    sizeUpStep: int = max(1, int(cmath.log(letterVolume, 4).real - 2))
+    sizeUpStep: int = max(1, int(math.log(letterVolume, 4) - 2))
     
     edge: int = size - 1
     center: Vec = (edge / 2, edge / 2, edge / 2)
@@ -81,8 +79,8 @@ def Generate(
     grid: set[Vec] = set()
     #hashmap of corner voxel positions, which are blacklisted
     corners: set[Vec] = set()
-    #the direction of each voxel holding letters to check for valid crossings on placement
-    dirs: VecSpace = {}    
+    #the directions of words that occupy voxels, to check for valid crossings on placement
+    dirs: dict[Vec, set[Vec]] = {}    
 
     #populate grid; the 6 sides of the cube
     dim: range = range(size)
@@ -159,7 +157,7 @@ def Generate(
 
     #represents the output of Impose() at all possible lengths
     prePathsMap: dict[tuple[Vec|None, Vec|None], list[tuple[Vec|None, Vec|None]]] = {}
-    maxlen: int = max(map(len, words))
+    maxlen: int = max(map(len, words | priority))
     for p in grid:
         if p in corners: continue
         for d in Adjacents:
@@ -191,15 +189,14 @@ def Generate(
         if pos in corners or pos not in grid: return None, None
 
         path: list[tuple[Vec|None, Vec|None]] = prePathsMap[pos, dir][:len(w)]
-        if path == [None, None]: return None, None
         if len(path) != len(w): return None, None
 
         area: list[Vec] = [] #voxels that are occupied by the word
         vspace: VecSpace = {} #the direction that every voxel is facing
         for t in path:
-            if t[0] and t[1]:
-                area.append(t[0])
-                vspace[t[0]] = t[1]
+            assert t[0] and t[1] #for typehinting
+            area.append(t[0])
+            vspace[t[0]] = t[1]
 
         return area, vspace
 
@@ -225,8 +222,10 @@ def Generate(
                 if exists != char: return None, None, None
                 if cdir := vspace.get(at):
                     #if sharing letters, cannot be parallel to existing words
-                    if dirs.get(at) == cdir: return None, None, None
-                    if dirs.get(at) == VecNeg(cdir): return None, None, None
+                    d: set[Vec]|None = dirs.get(at)
+                    if d:
+                        if cdir in d: return None, None, None
+                        if VecNeg(cdir) in d: return None, None, None
                 crosses += 1
                 
             else: #voxel is not occupied; ensure there isn't any adjacent occupied voxels
@@ -243,27 +242,32 @@ def Generate(
     """
     Writes the given word to output and dirs at the given position and direction.
     Will apply sanity checks to ensure validity of the placement.
+    Returns a list of newly occupied voxels.
     """
-    def Place(w: str, pos: Vec, dir: Vec):
+    def Place(w: str, pos: Vec, dir: Vec) -> list[Vec]:
         area, vspace = Impose(w, pos, dir)
         assert area and vspace, f"Invalid Impose area for placement on {w}, {pos}, {dir}"
         group: list[Vec] = []
+        new: list[Vec] = []
         for i, at in enumerate(area):
+            if not at in output: new.append(at)
             char: str = w[i]
             existing: str|None = output.get(at)
             assert existing is None or existing == char, f"Placement collision on {w}, {pos}, {dir}"
             output[at] = char
             cdir: Vec|None = vspace.get(at)
             assert cdir, "cdir missing in vspace"
-            dirs[at] = cdir
+            if d := dirs.get(at): d.add(dir)
+            else: dirs[at] = {dir}
             group.append(at)
+
         groups[w] = group
+        return new
 
     """
     Calculates the incremental CoM of the current position-sum and count-sum, plus a new imposure area.
     """
     def CandidateCoM(sp: Vec, sc: int, area: list[Vec]) -> Vec:
-        if sc == 0: return 0, 0, 0
         np: Vec = sp
         nc: int = sc
         for v in area:
@@ -281,7 +285,7 @@ def Generate(
     def BestPlacement(w: str, sp: Vec, sc: int, diverge: bool=False) -> tuple[Vec|None, Vec|None]:
         bestPos: Vec|None = None
         bestDir: Vec|None = None
-        bestCoMDist: float = -cmath.inf if diverge else cmath.inf
+        bestScore: float = -math.inf if diverge else math.inf
         for pos in grid:
             if pos in corners: continue
             for dir in Adjacents:
@@ -289,9 +293,14 @@ def Generate(
                 if n is None or area is None: continue
                 CoMDisp: Vec = VecSub(CandidateCoM(sp, sc, area), center)
                 CoMDistSq: float = VecDot(CoMDisp, CoMDisp)
-                bias: float = n * intersectionBias
-                if CoMDistSq + bias > bestCoMDist if diverge else CoMDistSq < bestCoMDist + bias:
-                    bestCoMDist = CoMDistSq
+                score: float
+                if intersectionBias != 0:
+                    dist: float = max(CoMDistSq**.5, 1e-6)
+                    bias: float = 1 + n * intersectionBias * .01 #bias param is usually in the tens, so divide by 100
+                    score = dist * bias if diverge else dist / bias
+                else: score = CoMDistSq
+                if (score > bestScore) if diverge else (score < bestScore):
+                    bestScore = score
                     bestPos = pos
                     bestDir = dir
 
@@ -309,9 +318,9 @@ def Generate(
 
         pos, dir = BestPlacement(w, sp, sc, True)
         if pos and dir:
-            Place(w, pos, dir)
-            sp = VecAdd(sp, pos)
-            sc += 1
+            added: list[Vec] = Place(w, pos, dir)
+            for v in added: sp = VecAdd(sp, v)
+            sc += len(added)
         else:
             #print(f"Couldn't fit all priority words; restarting generation at size={size + sizeUpStep}")
             return Generate(words, priority, intersectionBias, size + sizeUpStep)
@@ -326,7 +335,10 @@ def Generate(
 
         if w in priority: continue
         pos, dir = BestPlacement(w, sp, sc)
-        if pos and dir: Place(w, pos, dir)
+        if pos and dir:
+            added: list[Vec] = Place(w, pos, dir)
+            for v in added: sp = VecAdd(sp, v)
+            sc += len(added)
         else:
             #print(f"Couldn't fit all words; restarting generation at size={size + sizeUpStep}")
             return Generate(words, priority, intersectionBias, size + sizeUpStep)
