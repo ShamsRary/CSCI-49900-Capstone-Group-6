@@ -57,6 +57,7 @@ Returns two hashmaps and a vector:
 def Generate(
     words: set[str],
     priority: set[str] = set(),
+    *,
     intersectionBias: float = 0,
     size: int = 3
 ) -> tuple[dict[Vec, str], dict[str, list[Vec]], Vec]:
@@ -64,8 +65,8 @@ def Generate(
     global CANCEL_FLAG
 
     letterVolume: int = sum(map(len, words | priority))
-    while 6*size**2 < letterVolume: size += 1
-    sizeUpStep: int = max(1, int(math.log(letterVolume, 4) - 2))
+    maxlen: int = max(map(len, words | priority))
+    while 6*size**2 < letterVolume or size < math.ceil(maxlen/4) + 1: size += 1
     
     edge: int = size - 1
     center: Vec = (edge / 2, edge / 2, edge / 2)
@@ -80,7 +81,11 @@ def Generate(
     #hashmap of corner voxel positions, which are blacklisted
     corners: set[Vec] = set()
     #the directions of words that occupy voxels, to check for valid crossings on placement
-    dirs: dict[Vec, set[Vec]] = {}    
+    dirs: dict[Vec, set[Vec]] = {}
+
+    #called before recursion happens
+    def Cleanup(*args):
+        for v in args: del v
 
     #populate grid; the 6 sides of the cube
     dim: range = range(size)
@@ -149,7 +154,9 @@ def Generate(
     def FastTransform(pos: Vec|None, dir: Vec|None, units: int) -> tuple[Vec|None, Vec|None]:
         if pos is None or dir is None: return None, None
         if units == 0: return pos, dir
-        if units < 0: return FastTransform(pos, VecNeg(dir), -units)
+        if units < 0:
+            dir = VecNeg(dir)
+            units *= -1
         while pos and dir and units > 0:
             units -= 1
             pos, dir = preStepsMap[pos, dir]
@@ -157,7 +164,6 @@ def Generate(
 
     #represents the output of Impose() at all possible lengths
     prePathsMap: dict[tuple[Vec|None, Vec|None], list[tuple[Vec|None, Vec|None]]] = {}
-    maxlen: int = max(map(len, words | priority))
     for p in grid:
         if p in corners: continue
         for d in Adjacents:
@@ -222,8 +228,7 @@ def Generate(
                 if exists != char: return None, None, None
                 if cdir := vspace.get(at):
                     #if sharing letters, cannot be parallel to existing words
-                    d: set[Vec]|None = dirs.get(at)
-                    if d:
+                    if d := dirs.get(at):
                         if cdir in d: return None, None, None
                         if VecNeg(cdir) in d: return None, None, None
                 crosses += 1
@@ -232,10 +237,6 @@ def Generate(
                 for adjPos in preNeighborsMap[at]:
                     if adjPos in vspace: continue
                     if adjPos in output: return None, None, None
-
-        #beginning and end of word cannot touch other words
-        #if FastTransform(pos, dir, -1)[0] in output: return None, None, None
-        #if FastTransform(pos, dir, len(w))[0] in output: return None, None, None
 
         return crosses, area, vspace
 
@@ -247,18 +248,22 @@ def Generate(
     def Place(w: str, pos: Vec, dir: Vec) -> list[Vec]:
         area, vspace = Impose(w, pos, dir)
         assert area and vspace, f"Invalid Impose area for placement on {w}, {pos}, {dir}"
+
         group: list[Vec] = []
         new: list[Vec] = []
         for i, at in enumerate(area):
+
             if not at in output: new.append(at)
             char: str = w[i]
             existing: str|None = output.get(at)
             assert existing is None or existing == char, f"Placement collision on {w}, {pos}, {dir}"
             output[at] = char
+
             cdir: Vec|None = vspace.get(at)
             assert cdir, "cdir missing in vspace"
-            if d := dirs.get(at): d.add(dir)
-            else: dirs[at] = {dir}
+            if d := dirs.get(at): d.add(cdir)
+            else: dirs[at] = {cdir}
+
             group.append(at)
 
         groups[w] = group
@@ -322,8 +327,9 @@ def Generate(
             for v in added: sp = VecAdd(sp, v)
             sc += len(added)
         else:
-            #print(f"Couldn't fit all priority words; restarting generation at size={size + sizeUpStep}")
-            return Generate(words, priority, intersectionBias, size + sizeUpStep)
+            #print(f"Couldn't fit all priority words; restarting generation at size={size+1}")
+            Cleanup(output, groups, grid, corners, dirs)
+            return Generate(words, priority, intersectionBias=intersectionBias, size=size+1)
 
     #for every other word, place the longest words first and try to increase balance
     ordered: list = list(words)
@@ -340,8 +346,9 @@ def Generate(
             for v in added: sp = VecAdd(sp, v)
             sc += len(added)
         else:
-            #print(f"Couldn't fit all words; restarting generation at size={size + sizeUpStep}")
-            return Generate(words, priority, intersectionBias, size + sizeUpStep)
+            #print(f"Couldn't fit all words; restarting generation at size={size+1}")
+            Cleanup(output, groups, grid, corners, dirs)
+            return Generate(words, priority, intersectionBias=intersectionBias, size=size+1)
 
     finalCoM: Vec = CoM(output)
     print(f"Algorithm: finished at size={size}, CoM={repr(finalCoM)}")
@@ -378,7 +385,12 @@ def GenerateJSON(i: Input) -> Output:
     try:
         RUNNING = True
         #CANCEL_FLAG = False
-        voxels, words, CoM = Generate(set(i["Words"]), set(i["Priority"]), i["IntersectionBias"], i["Size"])
+        voxels, words, CoM = Generate(
+            set(i["Words"]),
+            set(i["Priority"]),
+            intersectionBias=i["IntersectionBias"],
+            size=i["Size"]
+        )
     except Exception as e:
         raise e #propagate error back to Javascript
     finally:
