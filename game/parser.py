@@ -1,8 +1,18 @@
 # parser.py: validates and cleans up the player's questions
 import json
+import os
 
 MIN_ANSWER_LENGTH = 3      # minimum length after normalizing
 ALLOW_DUPLICATE_ANSWERS = False
+
+DB_CONFIG = { # added by shams for database connection (backend/Python scripts only)
+    "host": os.getenv("DB_HOST", "100.70.195.74"), # Tailscale IP address of the MySQL Server
+    "port": int(os.getenv("DB_PORT", "3306")),
+    "user": os.getenv("DB_USER", "crossy_dev"),
+    "password": os.getenv("DB_PASSWORD", "CrossyWordDev2026!"), # allows for SELECT, INSERT, UPDATE, DELETE ON crossy-word-mysql_db
+    "database": os.getenv("DB_NAME", "crossy-word-mysql_db"), # dont expose this in the frontend, use environment variables or a config file
+    "charset": "utf8mb4",
+}
 
 def normalize(text):
     """Lowercase and keep only letters and digits: 'Group 6' -> 'group6'."""
@@ -92,3 +102,51 @@ def validate_questions(data):
         raise ValueError("\n".join(errors))
 
     return questions
+
+#SHAMS ADDED BELOW FOR DATABASE INSERTION OF QUESTIONS
+def save_questions_to_db(questions, creator_id=1, category=None, difficulty=1, puzzle_id=None, db_config=None):
+    import pymysql
+
+    config = dict(db_config or DB_CONFIG)
+    config.setdefault("cursorclass", pymysql.cursors.DictCursor)
+    inserted_ids = []
+
+    conn = pymysql.connect(**config)
+    try:
+        with conn.cursor() as cursor:
+            insert_question_sql = """
+                INSERT INTO Questions (creator_id, prompt, answer)
+                VALUES (%s, %s, %s);
+            """
+            link_puzzle_sql = """
+                INSERT IGNORE INTO Puzzle_Questions (puzzle_id, question_id)
+                VALUES (%s, %s);
+            """
+            for q in questions:
+                cursor.execute(
+                    insert_question_sql,
+                    (creator_id, q["question"], q["answer"]),
+                )
+                question_id = cursor.lastrowid
+                inserted_ids.append(question_id)
+
+                if puzzle_id is not None:
+                    cursor.execute(link_puzzle_sql, (puzzle_id, question_id))
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return inserted_ids
+
+def parse_and_save_questions(raw_json, creator_id=1, category=None, difficulty=1, puzzle_id=None, db_config=None):
+    validated = parse_questions(raw_json)
+    inserted_ids = save_questions_to_db(
+        validated,
+        creator_id=creator_id,
+        category=category,
+        difficulty=difficulty,
+        puzzle_id=puzzle_id,
+        db_config=db_config,
+    )
+    return validated, inserted_ids
