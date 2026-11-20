@@ -1,0 +1,20 @@
+services:
+  crossy-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crossy-word-api
+    environment:
+      - DB_HOST=tailscale-nas
+      - DB_PORT=3306
+    ports:
+      - "8000:8000"
+    networks:
+      - default
+      - crossy_stack_net
+    restart: unless-stopped
+
+networks:
+  crossy_stack_net:
+    external: true
+    name: crossy-word-stack_default

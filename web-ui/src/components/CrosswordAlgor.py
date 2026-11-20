@@ -50,9 +50,9 @@ Priority words are evaluated first in arbitrary order and placed at spots to int
 Every other word are sorted by length, starting with the longest, and placed to maximize balance.
 Can optionally provide with a bias value to favor making intersections of words over balancing.
 Returns two hashmaps and a vector:
-    - The letter occupying every voxel on the surface of the cube
-    - A list of voxels that are occupied by each word
-    - The center of mass of the finished cube
+- The letter occupying every voxel on the surface of the cube
+- A list of voxels that are occupied by each word
+- The center of mass of the finished cube
 """
 def Generate(
     words: set[str],
@@ -64,10 +64,17 @@ def Generate(
 
     global CANCEL_FLAG
 
-    letterVolume: int = sum(map(len, words | priority))
-    maxlen: int = max(map(len, words | priority))
-    while 6*size**2 < letterVolume or size < math.ceil(maxlen/4) + 1: size += 1
-    
+    all_words = words | priority
+    if not all_words:
+        return {}, {}, (0.0, 0.0, 0.0)
+
+    letterVolume: int = sum(map(len, all_words))
+    maxlen: int = max(map(len, all_words))
+    while 6 * size**2 < letterVolume or size < math.ceil(maxlen / 4) + 1:
+        size += 1
+
+    sizeUpStep: int = max(1, int(math.log(max(letterVolume, 2), 4) - 2))
+
     edge: int = size - 1
     center: Vec = (edge / 2, edge / 2, edge / 2)
 
@@ -85,7 +92,8 @@ def Generate(
 
     #called before recursion happens
     def Cleanup(*args):
-        for v in args: del v
+        for v in args:
+            del v
 
     #populate grid; the 6 sides of the cube
     dim: range = range(size)
@@ -118,24 +126,24 @@ def Generate(
     This version should only be used to populate the lookup table; use FastTransform() otherwise.
     """
     def RecursiveTransform(pos: Vec, dir: Vec, units: int) -> tuple[Vec|None, Vec|None]:
-       
         if units == 0: return pos, dir #base case; no more moves
         if pos not in grid: return None, None #base case; input position is invalid
 
         #recursive case; "units" is negative, normalize and invert the direction
         if units < 0: return RecursiveTransform(pos, VecNeg(dir), -units)
 
-        next: Vec = VecAdd(pos, dir)
-        if next in corners: return None, None #base case; corner positions are invalid
+        nxt: Vec = VecAdd(pos, dir)
+        if nxt in corners: return None, None #base case; corner positions are invalid
 
         #recursive case; move in a straight line
-        if next in grid: return RecursiveTransform(next, dir, units - 1)
+        if nxt in grid: return RecursiveTransform(nxt, dir, units - 1)
 
         #recursive case; turn around a corner
         for adj in Adjacents:
             if adj == dir or adj == VecNeg(dir): continue
-            next = VecAdd(pos, adj)
-            if next in grid and VecSub(pos, adj) not in grid: return RecursiveTransform(next, adj, units - 1)
+            nxt = VecAdd(pos, adj)
+            if nxt in grid and VecSub(pos, adj) not in grid:
+                return RecursiveTransform(nxt, adj, units - 1)
 
         #base case; something went wrong
         return None, None
@@ -209,13 +217,12 @@ def Generate(
     """
     Checks if a word imposed at the given position and direction is valid.
     If it is, returns a tuple of the following:
-        - Number of intersections with other words
-        - List of voxels that the word is occupying
-        - What direction each voxel is facing to connect characters
+- Number of intersections with other words
+- List of voxels that the word is occupying
+- What direction each voxel is facing to connect characters
     Otherwise, returns all None.
     """
     def Check(w: str, pos: Vec, dir: Vec) -> tuple[int|None, list[Vec]|None, VecSpace|None]:
-
         area, vspace = Impose(w, pos, dir)
         if not (area and vspace): return None, None, None
 
@@ -232,7 +239,6 @@ def Generate(
                         if cdir in d: return None, None, None
                         if VecNeg(cdir) in d: return None, None, None
                 crosses += 1
-                
             else: #voxel is not occupied; ensure there isn't any adjacent occupied voxels
                 for adjPos in preNeighborsMap[at]:
                     if adjPos in vspace: continue
@@ -252,8 +258,7 @@ def Generate(
         group: list[Vec] = []
         new: list[Vec] = []
         for i, at in enumerate(area):
-
-            if not at in output: new.append(at)
+            if at not in output: new.append(at)
             char: str = w[i]
             existing: str|None = output.get(at)
             assert existing is None or existing == char, f"Placement collision on {w}, {pos}, {dir}"
@@ -301,9 +306,10 @@ def Generate(
                 score: float
                 if intersectionBias != 0:
                     dist: float = max(CoMDistSq**.5, 1e-6)
-                    bias: float = 1 + n * intersectionBias * .01 #bias param is usually in the tens, so divide by 100
+                    bias: float = 1 + n * intersectionBias * .01
                     score = dist * bias if diverge else dist / bias
-                else: score = CoMDistSq
+                else:
+                    score = CoMDistSq
                 if (score > bestScore) if diverge else (score < bestScore):
                     bestScore = score
                     bestPos = pos
@@ -318,7 +324,6 @@ def Generate(
     #priority words are placed first, in a way that maximizes *imbalance*
     for w in priority:
         if CANCEL_FLAG:
-            #print("Algorithm: canceled!")
             return {}, {}, (0, 0, 0)
 
         pos, dir = BestPlacement(w, sp, sc, True)
@@ -327,16 +332,13 @@ def Generate(
             for v in added: sp = VecAdd(sp, v)
             sc += len(added)
         else:
-            #print(f"Couldn't fit all priority words; restarting generation at size={size+1}")
             Cleanup(output, groups, grid, corners, dirs)
-            return Generate(words, priority, intersectionBias=intersectionBias, size=size+1)
+            return Generate(words, priority, intersectionBias=intersectionBias, size=size + sizeUpStep)
 
     #for every other word, place the longest words first and try to increase balance
-    ordered: list = list(words)
-    ordered.sort(key=len, reverse=True)
+    ordered: list[str] = sorted(words, key=len, reverse=True)
     for w in ordered:
         if CANCEL_FLAG:
-            #print("Algorithm: canceled!")
             return {}, {}, (0, 0, 0)
 
         if w in priority: continue
@@ -346,9 +348,8 @@ def Generate(
             for v in added: sp = VecAdd(sp, v)
             sc += len(added)
         else:
-            #print(f"Couldn't fit all words; restarting generation at size={size+1}")
             Cleanup(output, groups, grid, corners, dirs)
-            return Generate(words, priority, intersectionBias=intersectionBias, size=size+1)
+            return Generate(words, priority, intersectionBias=intersectionBias, size=size + sizeUpStep)
 
     finalCoM: Vec = CoM(output)
     print(f"Algorithm: finished at size={size}, CoM={repr(finalCoM)}")
@@ -363,9 +364,9 @@ class Input(typing.TypedDict):
     Size: int
 
 class Output(typing.TypedDict):
-    Voxels: list[tuple[float, float, float, str]]
-    Words: dict[str, list[Vec]] #maps words to their voxels
-    CoM: Vec
+    Voxels: list[list[typing.Any]]
+    Words: dict[str, list[Vec]]
+    CoM: list[float]
 
 #debounce for the interface
 RUNNING: bool = False
@@ -374,25 +375,25 @@ RUNNING: bool = False
 Main interface function that will be called from a Javascript environment.
 Will check for the "RUNNING" flag; will wait for existing generation process to cancel before running.
 """
-def GenerateJSON(i: Input) -> Output:
+def GenerateJSON(i: Input) -> Output | None:
     global CANCEL_FLAG, RUNNING
     if RUNNING:
         print("Algorithm: canceling previous generator process...")
         CANCEL_FLAG = True
-        while RUNNING: pass #spinlock until algorithm stops
-    
-    voxels = words = CoM = canceled = None
+        while RUNNING:
+            pass
+
+    voxels = words = CoM_val = canceled = None
     try:
         RUNNING = True
-        #CANCEL_FLAG = False
-        voxels, words, CoM = Generate(
+        voxels, words, CoM_val = Generate(
             set(i["Words"]),
             set(i["Priority"]),
             intersectionBias=i["IntersectionBias"],
             size=i["Size"]
         )
-    except Exception as e:
-        raise e #propagate error back to Javascript
+    except Exception:
+        raise
     finally:
         RUNNING = False
         if CANCEL_FLAG:
@@ -400,11 +401,10 @@ def GenerateJSON(i: Input) -> Output:
             canceled = True
 
     if canceled:
-        #print("Generator: cancel flag was triggered, will return nothing")
         return None
 
     return {
         "Voxels": [[p[0], p[1], p[2], c] for p, c in voxels.items()],
         "Words": words,
-        "CoM": [CoM[0], CoM[1], CoM[2]]
+        "CoM": [CoM_val[0], CoM_val[1], CoM_val[2]]
     }

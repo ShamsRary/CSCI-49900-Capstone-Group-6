@@ -1,12 +1,29 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api";
+
+function getCreatorId() {
+    try {
+        const rawUser = localStorage.getItem("user") ?? localStorage.getItem("currentUser");
+        if (rawUser) {
+            const parsed = JSON.parse(rawUser);
+            const id = Number(parsed?.id ?? parsed?.user_id);
+            if (Number.isInteger(id) && id > 0) {
+                return id;
+            }
+        }
+    } catch {
+        // ignore storage parse errors and fall back to default dev creator_id
+    }
+    return 1;
+}
 
 function Create() {
     const navigate = useNavigate();
-    const [title, setTitle] = useState(""); 
+    const [title, setTitle] = useState("");
         //a variable 'title', a function 'setTitle' to update the title
         //initialize the title state variable to an empty string
-        
+
     const [pairs, setPairs] = useState([
         //a state variable for the question-answer pairs
         // initialized to an array with two empty objects
@@ -23,9 +40,9 @@ function Create() {
         //runs everytime user types in question/answer box
         //takes 3 parameters: index of the pair, field to update, new value
 
-        const newPairs = [...pairs]; 
+        const newPairs = [...pairs];
         //make copy of the current pairs array
-        newPairs[index] = { ...newPairs[index], [field]: value }; 
+        newPairs[index] = { ...newPairs[index], [field]: value };
         //update the specific field of the pair at the given index with the new value
         setPairs(newPairs);
         //update the state with the new pairs array
@@ -52,7 +69,7 @@ function Create() {
         setPairs(newPairs);
     }
 
-    function generatePuzzle() {
+    async function generatePuzzle() {
         //trims off any extra spaces
         const questions = pairs.map(({ question, answer }) => ({
             question: question.trim(),
@@ -68,7 +85,7 @@ function Create() {
             setError("Fill in both the question and answer for every row.");
             return;
         }
-        
+
         // Check for duplicate questions (case-insensitive, ignoring spaces)
         const normalizedQuestions = questions.map(({ question }) =>
             question.toLowerCase().replace(/\s+/g, " ")
@@ -77,7 +94,7 @@ function Create() {
             setError("Each question must be different.");
             return;
         }
-     
+
         const normalizedAnswers = questions.map(({ answer }) => answer.toUpperCase().replace(/[^A-Z0-9]/g, ""));
         if (normalizedAnswers.some((answer) => answer.length < 3)) {
             setError("Each answer must contain at least three letters or numbers.");
@@ -92,8 +109,6 @@ function Create() {
         setError("");
 
 
-        // The app does not have a backend yet, so keep created puzzles in this browser.
-        // asked ai for this
         // create a puzzle object with a unique id, title, questions, and creation date
         const puzzle = {
             id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -109,8 +124,26 @@ function Create() {
             return;
         }
 
+        let dbPuzzleId = null;
+        try {
+            const created = await api.createPuzzle({
+                creator_id: getCreatorId(),
+                title: puzzle.title,
+                questions: puzzle.questions,
+            });
+            dbPuzzleId = created?.puzzle_id ?? created?.id ?? null;
+        } catch (err) {
+            console.warn("Failed to sync puzzle to API; localStorage copy preserved:", err);
+        }
+
         //tells react router to open puzzle page and carry the title and questions pairs over
-        navigate("/puzzle", { state: { title: puzzle.title, questions: puzzle.questions } });
+        navigate("/puzzle", {
+            state: {
+                title: puzzle.title,
+                questions: puzzle.questions,
+                ...(dbPuzzleId != null ? { puzzleId: dbPuzzleId } : {}),
+            },
+        });
     }
 
     return (
@@ -125,7 +158,7 @@ function Create() {
                     type="text"
                     placeholder="e.g. Biology Chapter 3"
                     value={title}
-                    
+
                     onChange={(e) => setTitle(e.target.value)}
                     /* update the title state variable whenever the user types in the input field */
                 />
@@ -159,7 +192,7 @@ function Create() {
 
                 <button className="btn-add" onClick={addPair}>+ Add </button>
 
-                
+
                 {error && <p role="alert" className="feedback-wrong">{error}</p>}
                 <div style={{ marginTop: "30px" }}>
                     <button className="btn" onClick={generatePuzzle}>Generate Puzzle</button>
@@ -170,14 +203,14 @@ function Create() {
             </div>
 
         <div className="footer">
-            
+
         </div>
 
 
         </section>
 
 
-            
+
 
     );
 }
