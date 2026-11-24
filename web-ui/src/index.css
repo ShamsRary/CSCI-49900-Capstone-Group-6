@@ -13,25 +13,86 @@ body {
   padding: 0;
 }
 
-/*  Navigation bar  */
-nav {
+/* Product navigation */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(8, 20, 40, 0.94);
+  border-bottom: 1px solid rgba(142, 162, 199, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+.site-nav {
+  width: min(1120px, 100%);
+  min-height: 76px;
+  margin: 0 auto;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
-  gap: 30px;
-  padding: 16px 24px;
-  background-color: #101a30;
-  box-shadow: 0px 2px 12px rgba(83, 168, 233, 0.45); /* soft blue glow under the nav */
+  justify-content: space-between;
+  gap: 28px;
 }
 
-nav a {
-  color: #4e8cff;
+.site-nav a {
+  color: #b8c5df;
   text-decoration: none;
-  font-weight: bold;
-  transition: all 0.5s ease; /* Smooth transition for hover effect */
+  font-weight: 600;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
-nav a:hover {
-  color: #00d9a3; 
+.site-nav a:hover,
+.site-nav a.active { color: #fff; }
+
+.site-nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+  transform: translateX(-36px);
+}
+
+.brand img { width: 34px; height: 34px; object-fit: contain; }
+.brand-accent { color: #48dfbd; }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.site-nav .nav-links a {
+  padding: 10px 14px;
+  border-radius: 9px;
+}
+
+.site-nav .nav-links a:hover,
+.site-nav .nav-links a.active { background: rgba(255, 255, 255, 0.08); }
+
+.site-nav .nav-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  color: #72ecd0;
+  background: transparent;
+  border: 1px solid rgba(72, 223, 189, 0.65);
+  border-radius: 9px;
+  white-space: nowrap;
+}
+
+.site-nav .nav-account:hover { color: #fff; background: rgba(72, 223, 189, 0.1); border-color: #48dfbd; }
+
+@media (max-width: 620px) {
+  .site-nav { min-height: 66px; padding: 10px 16px; gap: 10px; flex-wrap: wrap; }
+  .site-nav .brand { margin-right: auto; transform: none; }
+  .nav-links { order: 3; width: 100%; justify-content: center; border-top: 1px solid rgba(142, 162, 199, 0.16); padding-top: 8px; }
+  .site-nav .nav-links a { padding: 8px 12px; font-size: 0.9rem; }
+  .site-nav .nav-account { padding: 9px 12px; font-size: 0.9rem; }
 }
 
 /*  Text styles  */
@@ -642,6 +703,49 @@ input:focus {
   text-align: left;
 }
 
+.guest-library-note {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 22px;
+  padding: 14px 18px;
+  color: #cbd4e2;
+  background: rgba(72, 223, 189, 0.07);
+  border: 1px solid rgba(72, 223, 189, 0.24);
+  border-radius: 12px;
+}
+
+.guest-library-note p {
+  margin: 0;
+  text-align: left;
+  font-size: 0.92rem;
+}
+
+.guest-library-note strong { 
+  color: #72ecd0; 
+}
+
+.guest-library-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #72ecd0;
+  background: rgba(72, 223, 189, 0.12);
+  border-radius: 10px;
+}
+
+.guest-library-icon svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .library-empty {
   max-width: 600px;
   margin: 64px auto;
@@ -698,15 +802,36 @@ input:focus {
 
 .library-card-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
+.library-card-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+
 .library-card-icon {
   width: 42px;
   height: 42px;
   font-size: 1.4rem;
+}
+
+.library-card-icon-incomplete {
+  color: #ff5b68;
+  background: rgba(255, 91, 104, 0.1);
+  border-color: rgba(255, 91, 104, 0.38);
+}
+
+.library-card-icon-complete {
+  color: #48dfbd;
+  background: rgba(72, 223, 189, 0.1);
+  border-color: rgba(72, 223, 189, 0.35);
 }
 
 
@@ -729,5 +854,21 @@ input:focus {
 .library-play-button {
   margin: 0;
   padding: 12px 18px;
+}
+
+.btn-replay {
+  margin: 0;
+  padding: 11px 16px;
+  color: #72ecd0;
+  background: transparent;
+  border: 2px solid rgba(72, 223, 189, 0.45);
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 600;
+}
+
+.btn-replay:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 

@@ -141,7 +141,8 @@ function Create() {
             state: {
                 title: puzzle.title,
                 questions: puzzle.questions,
-                ...(dbPuzzleId != null ? { puzzleId: dbPuzzleId } : {}),
+                puzzleId: puzzle.id,
+                ...(dbPuzzleId != null ? { dbPuzzleId } : {}),
             },
         });
     }

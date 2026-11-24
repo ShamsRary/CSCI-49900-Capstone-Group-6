@@ -34,6 +34,21 @@ const sampleQuestions = [
     { question: "What do bees produce?", answer: "Honey" },
     { question: "What language is spoken in Brazil?", answer: "Portuguese" },
 ];
+
+function readSavedAnswers(puzzleId, questionCount) {
+    if (!puzzleId) return [];
+    try {
+        const puzzles = JSON.parse(localStorage.getItem("puzzles") ?? "[]");
+        const puzzle = puzzles.find((item) => item.id === puzzleId);
+        if (Array.isArray(puzzle?.answeredQuestions)) {
+            return puzzle.answeredQuestions.filter((number) => Number.isInteger(number) && number >= 1 && number <= questionCount);
+        }
+        return puzzle?.completed === true ? Array.from({ length: questionCount }, (_, index) => index + 1) : [];
+    } catch {
+        return [];
+    }
+}
+
 export default function Scene() {
 
     const { state } = useLocation();
@@ -42,6 +57,7 @@ export default function Scene() {
     const questions = useMemo(() => ((state?.questions ?? sampleQuestions).map((question, index) => ({ ...question, number: index + 1 }))), [state])
 
     const [generationError, setGenerationError] = useState("");
+    const [isRegenerating, setIsRegenerating] = useState(false);
     const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
     const [intersectionBias, setIntersectionBias] = useState(10);
 
@@ -77,6 +93,45 @@ export default function Scene() {
     const voxelToIndexMap = useRef(new Map()); //maps voxel coords expressed as strings to their index in "Voxels" array
     const voxelToWordsMap = useRef(new Map()); //maps voxel coords expressed as strings to words that uses them
     const currentCoM = useRef([0., 0., 0.]); //center of mass of the puzzle (only count voxels w/ letters)
+    const lastPriorityWord = useRef(null);
+
+    function prepareGeneratedPuzzle(generated, restoreProgress = true) {
+        if (!generated) return;
+
+        voxelToIndexMap.current.clear();
+        generated.Voxels.forEach((voxel, index) => {
+            voxel[3] = "?"; //hide the answers on the cube by replacing all displayed letters
+            voxel[4] = 0x888888;
+            voxelToIndexMap.current.set(`${voxel[0]}, ${voxel[1]}, ${voxel[2]}`, index);
+        });
+
+        voxelToWordsMap.current.clear();
+        for (const [word, wordVoxels] of Object.entries(generated.Words)) {
+            wordVoxels.forEach((voxel) => {
+                const coords = `${voxel[0]}, ${voxel[1]}, ${voxel[2]}`;
+                if (!voxelToWordsMap.current.has(coords)) voxelToWordsMap.current.set(coords, []);
+                voxelToWordsMap.current.get(coords).push(word);
+            });
+        }
+
+        if (restoreProgress) {
+            readSavedAnswers(state?.puzzleId, questions.length).forEach((questionNumber) => {
+                const question = questions[questionNumber - 1];
+                if (!question) return;
+                const answer = question.answer.toUpperCase().replace(/[^A-Z0-9]/g, "");
+                generated.Words[answer]?.forEach((voxel, index) => {
+                    const voxelIndex = voxelToIndexMap.current.get(`${voxel[0]}, ${voxel[1]}, ${voxel[2]}`);
+                    if (generated.Voxels[voxelIndex]) {
+                        generated.Voxels[voxelIndex][3] = answer[index] ?? "?";
+                        generated.Voxels[voxelIndex][4] = answer[index] ? 0xFFFFFF : 0x888888;
+                    }
+                });
+            });
+        }
+
+        currentCoM.current = [0, 0, 0];
+        setVoxels(generated);
+    }
 
     useEffect(() => {
         if (!questions.length) return;
@@ -90,24 +145,7 @@ export default function Scene() {
         GenerateAsync(algorInput)
             .then((generated) => {
                 if (!cancelled) {
-
-                    voxelToIndexMap.current.clear();
-                    generated.Voxels.map((v, i) => {
-                        generated.Voxels[i][3] = "?"; //hide the answers on the cube by replacing all displayed letters
-                        generated.Voxels[i][4] = 0x888888;
-                        voxelToIndexMap.current.set(`${v[0]}, ${v[1]}, ${v[2]}`, i); //populate map
-                    });
-
-                    voxelToWordsMap.current.clear();
-                    for (const [w, wv] of Object.entries(generated.Words)) {
-                        wv.map((v) => {
-                            const coords = `${v[0]}, ${v[1]}, ${v[2]}`;
-                            if (!voxelToWordsMap.current.has(coords)) voxelToWordsMap.current.set(coords, []);
-                            voxelToWordsMap.current.get(coords).push(w);
-                        })
-                    }
-
-                    setVoxels(generated);
+                    prepareGeneratedPuzzle(generated);
                 }
             })
             .catch((error) => { if (!cancelled) setGenerationError(error.message); });
@@ -116,6 +154,42 @@ export default function Scene() {
             GenerateAsync(false); //calling with false will cancel the current running worker
         };
     }, [questions]);
+
+    async function regeneratePuzzle() {
+        if (isRegenerating) return;
+        setIsRegenerating(true);
+        setGenerationError("");
+        try {
+            const words = questions.map(({ answer }) => answer.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+            const candidates = words.filter((word) => word !== lastPriorityWord.current);
+            const priorityWord = candidates[Math.floor(Math.random() * candidates.length)];
+            lastPriorityWord.current = priorityWord ?? null;
+            const generated = await GenerateAsync({
+                Words: words,
+                Priority: priorityWord ? [priorityWord] : [],
+                IntersectionBias: intersectionBias,
+                Size: 3,
+            });
+            if (!generated) return;
+
+            prepareGeneratedPuzzle(generated, false);
+            setSelected(null);
+            setAnswer("");
+            setFeedback("");
+            setHint("");
+            progressChanged.current = true;
+            setAnswered([]);
+            undoStack.current = [];
+            redoStack.current = [];
+            setCanUndo(false);
+            setCanRedo(false);
+            setShowRegenerateConfirm(false);
+        } catch (error) {
+            setGenerationError(error.message || "Could not regenerate the puzzle.");
+        } finally {
+            setIsRegenerating(false);
+        }
+    }
 
     //memory 1: which question the player clicked. Null means none yet.
     const [selected, setSelected] = useState(null);
@@ -133,7 +207,24 @@ export default function Scene() {
     const [feedback, setFeedback] = useState("");
 
     // memory 4: the numbers of the questions answered correctly, like [1, 4, 7]
-    const [answered, setAnswered] = useState([]);
+    const [answered, setAnswered] = useState(() => readSavedAnswers(state?.puzzleId, questions.length));
+    const progressChanged = useRef(false);
+    useEffect(() => {
+        if (!progressChanged.current || !state?.puzzleId || questions.length === 0) return;
+        try {
+            const saved = JSON.parse(localStorage.getItem("puzzles") ?? "[]");
+            const updated = saved.map((puzzle) => puzzle.id === state.puzzleId
+                ? {
+                    ...puzzle,
+                    answeredQuestions: answered,
+                    completed: answered.length === questions.length,
+                }
+                : puzzle);
+            localStorage.setItem("puzzles", JSON.stringify(updated));
+        } catch {
+            // Keep the game playable if browser storage is unavailable.
+        }
+    }, [answered.length, questions.length, state?.puzzleId]);
     const undoStack = useRef([]);
     const redoStack = useRef([]);
     const [canUndo, setCanUndo] = useState(false);
@@ -214,8 +305,8 @@ export default function Scene() {
     function clean(text){
         return text.toUpperCase().replace(/[^A-Z0-9]/g, "");
     }
+
     function checkAnswer() {
-        
         if(clean(answer) === clean(selectedQuestion.answer)) {
             setFeedback("correct");
 
@@ -226,6 +317,7 @@ export default function Scene() {
                 redoStack.current = [];
                 setCanUndo(true);
                 setCanRedo(false);
+                progressChanged.current = true;
                 setAnswered([...answered, selectedQuestion.number]);
 
                 //reveal the answered word in the puzzle
@@ -266,6 +358,7 @@ export default function Scene() {
         const previous = undoStack.current.pop();
         if (!previous) return;
         redoStack.current.push({ answered, voxels: structuredClone(voxels) });
+        progressChanged.current = true;
         setAnswered(previous.answered);
         setVoxels(previous.voxels);
         setFeedback("");
@@ -277,6 +370,7 @@ export default function Scene() {
         const next = redoStack.current.pop();
         if (!next) return;
         undoStack.current.push({ answered, voxels: structuredClone(voxels) });
+        progressChanged.current = true;
         setAnswered(next.answered);
         setVoxels(next.voxels);
         setFeedback("");
@@ -310,7 +404,7 @@ export default function Scene() {
             {state?.title && <h1>{state.title}</h1>}
             {generationError && <p role="alert" className="feedback-wrong">Could not generate the puzzle: {generationError}</p>}
 
-            {/*hint button & progress */}
+            {/* hint button & progress */}
             <div className="puzzle-topbar card">
             
             <div className="topbar-card">
@@ -376,6 +470,7 @@ export default function Scene() {
                         </button>
                         
                     </div>
+                    
                     <div className="card questions-card">
                         {/* .map() draws one line for EACH question in the list.
                             "key" is a label React needs to tell the lines apart. */}
@@ -438,7 +533,7 @@ export default function Scene() {
                 }}>
                     <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="regenerate-title">
                         <h2 id="regenerate-title">Regenerate puzzle?</h2>
-                        <p>Are you sure you want to create a new puzzle layout?</p>
+                        <p>This creates a new layout and resets your answers and progress.</p>
                         <div className="regenerate-bias-control">
                             <div className="regenerate-bias-heading">
                                 <label htmlFor="regenerate-bias">Intersection bias: <strong>{intersectionBias}</strong></label>
@@ -455,8 +550,10 @@ export default function Scene() {
                             />
                         </div>
                         <div className="confirm-actions">
-                            <button className="btn-hint" onClick={() => setShowRegenerateConfirm(false)}>Cancel</button>
-                            <button className="btn-hint" onClick={() => setShowRegenerateConfirm(false)}>Regenerate</button>
+                            <button className="btn-hint" onClick={() => setShowRegenerateConfirm(false)} disabled={isRegenerating}>Cancel</button>
+                            <button className="btn-hint" onClick={regeneratePuzzle} disabled={isRegenerating}>
+                                {isRegenerating ? "Generating…" : "Regenerate"}
+                            </button>
                         </div>
                     </div>
                 </div>

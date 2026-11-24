@@ -5,16 +5,20 @@ import { Link, useNavigate } from "react-router-dom";
 const STORAGE_KEY = "puzzles";
 
 function readPuzzles() {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
-    return Array.isArray(saved) ? saved : [];
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+        return Array.isArray(saved) ? saved : [];
+    } catch {
+        return [];
+    }
 }
-
 
 function Library() {
 
     //react read the puzzles from local storage and store them 
     const [puzzles, setPuzzles] = useState(readPuzzles);
     const [puzzleToDelete, setPuzzleToDelete] = useState(null);
+    const [puzzleToReplay, setPuzzleToReplay] = useState(null);
     const navigate = useNavigate();
 
     function deletePuzzle(id) {
@@ -23,6 +27,25 @@ function Library() {
         setPuzzles(updatedPuzzles);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPuzzles));
         setPuzzleToDelete(null);
+    }
+
+    
+    function replayPuzzle() {
+        if (!puzzleToReplay) return;
+        const puzzle = puzzleToReplay;
+        const updatedPuzzles = puzzles.map((savedPuzzle) => savedPuzzle.id === puzzle.id
+            ? { ...savedPuzzle, completed: false, answeredQuestions: [] }
+            : savedPuzzle);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPuzzles));
+        setPuzzles(updatedPuzzles);
+        setPuzzleToReplay(null);
+        navigate("/puzzle", {
+            state: {
+                puzzleId: puzzle.id,
+                title: puzzle.title,
+                questions: puzzle.questions,
+            },
+        });
     }
 
     return (
@@ -34,11 +57,25 @@ function Library() {
             <div className="library-heading">
                 <div>
                     <p className="library-eyebrow">YOUR COLLECTION</p>
-                    <h1>Puzzle Library</h1>
-                    <p className="library-description">All your puzzles in one place.</p>
+                    <h1>My Puzzles</h1>
+                    <p className="library-description">Your created puzzles, ready whenever you are.</p>
                 </div>
                 
                 <Link to="/create" className="btn">+ Create a Puzzle</Link>
+            </div>
+
+            {/* guest mode */}
+            <div className="guest-library-note" role="note">
+                <span className="guest-library-icon" aria-hidden="true">
+                    
+                    {/* icon */}
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+                        <path d="M3.5 9h17M7 6.8h.01M10 6.8h.01" />
+                    </svg>
+
+                </span>
+                <p><strong>Guest mode</strong><br />Your puzzles are saved in this browser, so you can come back to them on this device.</p>
             </div>
 
                 {/* puzzle count */}
@@ -63,10 +100,26 @@ function Library() {
                     {/* if there are puzzles, show them in a grid */}
                     {/* goes through the list of puzzles and displays each one */}
                     {puzzles.map((puzzle) => (
-                        <div className="card library-card" key={puzzle.id}>
-                            <div className="library-card-icon" aria-hidden="true">✦</div>
 
-                            <h2>{puzzle.title}</h2> 
+                        <div className="card library-card" key={puzzle.id}>
+                            
+                            <div className="library-card-topline">
+                                <div className={"library-card-icon" + 
+                                    // star is red if puzzle, incomplete, green if complete + replay button
+                                    (puzzle.completed === true ? " library-card-icon-complete" : " library-card-icon-incomplete")} 
+                                    role="img" aria-label={puzzle.completed === true ? "Puzzle complete" : "Puzzle incomplete"}>✦</div>
+                                
+                                {/* replay button */}
+                                {puzzle.completed === true && (
+                                    <button className="btn-replay" type="button" onClick={() => setPuzzleToReplay(puzzle)}>
+                                        Replay
+                                    </button>
+                                    
+                                )}
+                            </div>
+
+
+                            <h2>{puzzle.title}</h2>
                             <p>{puzzle.questions.length} questions</p>
 
                             {/* add created date */}
@@ -86,13 +139,14 @@ function Library() {
                             <button className="btn library-play-button" 
                                 onClick={() => navigate("/puzzle", { 
                                 // tells react router to open puzzle page and carry the title and questions pairs over
-                                state: { 
+                                    state: {
+                                    puzzleId: puzzle.id,
                                     title: puzzle.title, 
                                     questions: puzzle.questions,                       
                                 },                                
                             })}>  Play Puzzle 
                             </button>
-                            
+
                             {/* delete puzzle button */}
                             <button className="btn-remove" 
                              onClick={() => setPuzzleToDelete(puzzle)}>  
@@ -119,6 +173,21 @@ function Library() {
                         <div className="confirm-actions">
                             <button className="btn-hint" onClick={() => setPuzzleToDelete(null)}>Cancel</button>
                             <button className="btn-remove" onClick={() => deletePuzzle(puzzleToDelete.id)}>Delete</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {puzzleToReplay && (
+                <div className="confirm-overlay" onClick={(event) => {
+                    if (event.target === event.currentTarget) setPuzzleToReplay(null);
+                }}>
+                    <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="replay-title">
+                        <h2 id="replay-title">Replay {puzzleToReplay.title}?</h2>
+                        <p>This will reset your answers and start the puzzle over.</p>
+                        <div className="confirm-actions">
+                            <button className="btn-hint" onClick={() => setPuzzleToReplay(null)}>Cancel</button>
+                            <button className="btn-replay" onClick={replayPuzzle}>Replay</button>
                         </div>
                     </div>
                 </div>
